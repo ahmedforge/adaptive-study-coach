@@ -2,3 +2,5 @@ fastapi
 uvicorn[standard]
 pydantic
 pytest
+sentence-transformers
+faiss-cpu

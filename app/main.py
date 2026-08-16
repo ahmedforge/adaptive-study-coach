@@ -1,4 +1,5 @@
 from fastapi import FastAPI
+from app.routers.retrieval import router as retrieval_router
 
 from app.routers.diagnostic import router as diagnostic_router
 
@@ -9,6 +10,7 @@ app = FastAPI(
 )
 
 app.include_router(diagnostic_router)
+app.include_router(retrieval_router)
 
 
 @app.get("/health")
