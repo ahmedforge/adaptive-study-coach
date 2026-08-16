@@ -1,0 +1,50 @@
+[
+  {
+    "id": "num_001",
+    "topic": "number_systems",
+    "subtopic": "closure_properties",
+    "difficulty": "easy",
+    "question": "Which property states that adding two real numbers always gives another real number?",
+    "options": [
+      "Closure property",
+      "Commutative property",
+      "Associative property",
+      "Distributive property"
+    ],
+    "correct_answer": "Closure property",
+    "explanation": "Real numbers are closed under addition.",
+    "source": "adapted_kips"
+  },
+  {
+    "id": "alg_001",
+    "topic": "quadratic_equations",
+    "subtopic": "factorization",
+    "difficulty": "easy",
+    "question": "What are the roots of x² - 7x + 12 = 0?",
+    "options": [
+      "2 and 6",
+      "3 and 4",
+      "-3 and -4",
+      "1 and 12"
+    ],
+    "correct_answer": "3 and 4",
+    "explanation": "The expression factors as (x - 3)(x - 4).",
+    "source": "adapted_kips"
+  },
+  {
+    "id": "trig_001",
+    "topic": "trigonometry",
+    "subtopic": "basic_ratios",
+    "difficulty": "easy",
+    "question": "If tan θ = 1 and θ is acute, what is θ?",
+    "options": [
+      "30°",
+      "45°",
+      "60°",
+      "90°"
+    ],
+    "correct_answer": "45°",
+    "explanation": "tan 45° = 1.",
+    "source": "adapted_kips"
+  }
+]
