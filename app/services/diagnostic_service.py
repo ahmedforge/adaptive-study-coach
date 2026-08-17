@@ -1,5 +1,6 @@
 from app.models.diagnostic import DiagnosticSubmission, DiagnosticResult
 from app.repositories.question_repository import load_questions
+from app.services.grading_service import grade_answer
 
 
 def evaluate_diagnostic(
@@ -15,20 +16,18 @@ def evaluate_diagnostic(
         if question is None:
             continue
 
-        if answer.selected_answer is None:
-            is_correct = False
-            error_type = "unanswered"
-        else:
-            is_correct = answer.selected_answer == question.correct_answer
-            error_type = "correct" if is_correct else "concept_error"
+        grade = grade_answer(
+            selected_answer=answer.selected_answer,
+            correct_answer=question.correct_answer,
+        )
 
         results.append(
             DiagnosticResult(
                 question_id=question.id,
                 topic=question.topic,
                 subtopic=question.subtopic,
-                is_correct=is_correct,
-                error_type=error_type,
+                is_correct=grade["is_correct"],
+                error_type=grade["error_type"],
             )
         )
 
