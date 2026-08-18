@@ -65,48 +65,56 @@
     <h2>Diagnostic</h2>
 
     <form id="diagnostic-form">
-        <div>
-            <p>1. Which property states that adding two real numbers always gives another real number?</p>
-            <label><input type="radio" name="num_001" value="Closure property"> Closure property</label><br>
-            <label><input type="radio" name="num_001" value="Commutative property"> Commutative property</label><br>
-            <label><input type="radio" name="num_001" value="Associative property"> Associative property</label><br>
-            <label><input type="radio" name="num_001" value="Distributive property"> Distributive property</label>
-        </div>
+    <div id="diagnostic-questions"></div>
 
-        <div>
-            <p>2. What are the roots of x² - 7x + 12 = 0?</p>
-            <label><input type="radio" name="alg_001" value="2 and 6"> 2 and 6</label><br>
-            <label><input type="radio" name="alg_001" value="3 and 4"> 3 and 4</label><br>
-            <label><input type="radio" name="alg_001" value="-3 and -4"> -3 and -4</label><br>
-            <label><input type="radio" name="alg_001" value="1 and 12"> 1 and 12</label>
-        </div>
-
-        <div>
-            <p>3. If tan θ = 1 and θ is acute, what is θ?</p>
-            <label><input type="radio" name="trig_001" value="30°"> 30°</label><br>
-            <label><input type="radio" name="trig_001" value="45°"> 45°</label><br>
-            <label><input type="radio" name="trig_001" value="60°"> 60°</label><br>
-            <label><input type="radio" name="trig_001" value="90°"> 90°</label>
-        </div>
-
-        <br>
-        <button type="submit">Submit Diagnostic</button>
+    <br>
+    <button type="submit">Submit Diagnostic</button>
     </form>
 
     <div id="report"></div>
 <div id="practice"></div>
 
 <script>
+    const questionsBox = document.getElementById("diagnostic-questions");
+    let diagnosticQuestions = [];
     const form = document.getElementById("diagnostic-form");
     const reportBox = document.getElementById("report");
     const practiceBox = document.getElementById("practice");
 
     let agentState = null;
+    async function loadDiagnosticQuestions() {
+    const response = await fetch("/diagnostic/questions");
+    const data = await response.json();
 
+    diagnosticQuestions = data.questions;
+
+    questionsBox.innerHTML = diagnosticQuestions.map((question, index) => {
+        const optionsHtml = question.options.map((option) => `
+            <label>
+                <input
+                    type="radio"
+                    name="${question.id}"
+                    value="${option}"
+                >
+                ${option}
+            </label>
+        `).join("");
+
+        return `
+            <div>
+                <p><strong>${index + 1}. ${question.question}</strong></p>
+                ${optionsHtml}
+            </div>
+        `;
+    }).join("");
+}
+    loadDiagnosticQuestions();
     form.addEventListener("submit", async (event) => {
         event.preventDefault();
 
-        const questionIds = ["num_001", "alg_001", "trig_001"];
+        const questionIds = diagnosticQuestions.map(
+        (question) => question.id
+        );
 
         const answers = questionIds.map((id) => {
             const selected = document.querySelector(
