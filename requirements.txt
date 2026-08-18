@@ -4,3 +4,5 @@ pydantic
 pytest
 sentence-transformers
 faiss-cpu
+google-genai
+python-dotenv
