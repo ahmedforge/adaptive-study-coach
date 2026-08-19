@@ -14,7 +14,7 @@ def evaluate_diagnostic(
         question = questions.get(answer.question_id)
 
         if question is None:
-            continue
+            raise ValueError(f"Unknown question_id: {answer.question_id}")
 
         grade = grade_answer(
             selected_answer=answer.selected_answer,

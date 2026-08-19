@@ -1,3 +1,5 @@
+import pytest
+
 from app.models.diagnostic import DiagnosticAnswer, DiagnosticSubmission
 from app.services.diagnostic_service import evaluate_diagnostic
 
@@ -32,3 +34,17 @@ def test_evaluate_diagnostic():
 
     assert results[2].is_correct is False
     assert results[2].error_type == "unanswered"
+
+
+def test_unknown_question_id_raises_error():
+    submission = DiagnosticSubmission(
+        answers=[
+            DiagnosticAnswer(
+                question_id="does_not_exist",
+                selected_answer="A",
+            )
+        ]
+    )
+
+    with pytest.raises(ValueError, match="Unknown question_id"):
+        evaluate_diagnostic(submission)
