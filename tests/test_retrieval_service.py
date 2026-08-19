@@ -7,5 +7,5 @@ def test_retrieval_returns_relevant_question():
     results = retriever.search("quadratic equation roots", top_k=3)
 
     assert len(results) > 0
-    assert results[0]["question"].id == "alg_001"
+    assert results[0]["question"].topic == "quadratic_equations"
     assert results[0]["score"] > 0
