@@ -1,6 +1,6 @@
 import faiss
 import numpy as np
-
+from app.services.mlflow_service import log_retrieval_run
 from app.repositories.question_repository import load_questions
 from app.services.embedding_service import embed_texts
 
@@ -39,5 +39,10 @@ class QuestionRetriever:
                     "score": float(score),
                 }
             )
-
+        if results:
+            log_retrieval_run(
+            query=query,
+            top_k=top_k,
+            top_score=results[0]["score"],
+            )
         return results

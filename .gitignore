@@ -5,3 +5,4 @@ __pycache__/
 *.db
 uploads/
 .pytest_cache/
+mlruns/
