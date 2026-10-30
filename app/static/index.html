@@ -48,6 +48,16 @@
         color: white;
     }
 
+    table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: 0.9rem; }
+    th, td { padding: 8px 4px; border-bottom: 1px solid #ddd; text-align: left; }
+    caption { text-align: left; margin-bottom: 8px; }
+    summary { cursor: pointer; padding: 8px 0; font-weight: bold; }
+    @media (max-width: 480px) {
+        body { padding: 0 12px; }
+        #report { padding: 12px; }
+        th, td { padding: 8px 2px; font-size: 0.8rem; overflow-wrap: anywhere; }
+    }
+
     button:disabled { opacity: 0.55; cursor: wait; }
 
     button:hover {
@@ -70,7 +80,7 @@
         <button id="new-session" type="button">Start new diagnostic</button>
     </div>
     <h2 id="diagnostic-heading">Diagnostic</h2>
-    <p id="diagnostic-help">Your diagnostic and practice progress are saved after submission.</p>
+    <p id="diagnostic-help">Choose an answer for each question you can solve. Questions left blank count as unanswered and are included in practice. Your progress is saved after submission.</p>
 
     <form id="diagnostic-form">
     <div id="diagnostic-questions"></div>

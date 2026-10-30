@@ -517,3 +517,15 @@ is best effort: a tracking outage does not block a valid retrieval. The general
 search API validates query length and requires `top_k` between 1 and 20.
 
 Local selection verification (October 30, 2026): **75 tests passed** with cached embeddings and no live Gemini calls.
+
+
+### Diagnostic results review
+
+Saved sessions include a diagnostic summary with correct, incorrect, and unanswered
+counts overall and per topic. Expand the diagnostic results in the progress panel
+to review the evidence behind the practice plan. Unanswered questions are shown
+separately from wrong answers; both contribute to the existing practice order.
+This summary is computed from the saved diagnostic, so it remains available after
+resume and does not change as practice answers accumulate. It also works for older
+saved sessions without adding stored fields. A small diagnostic sample does not
+establish mastery or identify the cause of an incorrect answer.

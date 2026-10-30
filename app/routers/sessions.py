@@ -13,7 +13,7 @@ from app.models.diagnostic import DiagnosticSubmission
 from app.repositories.progress_repository import ProgressStore
 from app.repositories.question_repository import load_questions
 from app.services.agent_service import get_practice_question, identify_weak_topics, update_after_practice
-from app.services.diagnostic_service import evaluate_diagnostic
+from app.services.diagnostic_service import evaluate_diagnostic, summarize_diagnostic
 
 router = APIRouter(prefix='/sessions', tags=['saved progress'])
 bearer = HTTPBearer()
@@ -53,8 +53,10 @@ def question_record(state, history=None):
 
 def public_session(data):
     question = data['question']
+    state = AgentState.model_validate(data['state'])
     return {
-        'state': AgentState.model_validate(data['state']).model_dump(),
+        'diagnostic_summary': summarize_diagnostic(state.diagnostic_results),
+        'state': state.model_dump(),
         'practice_question': ({key: question[key] for key in
             ['id', 'question', 'options', 'generation_source']} if question else None),
         'history': data['history'], 'updated_at': data['updated_at'],

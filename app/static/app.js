@@ -45,17 +45,48 @@ function savedStatus() {
         ? 'Progress saved. Resume from this browser after closing or restarting the app.'
         : 'Progress saved on this server, but browser storage is unavailable. Keep this tab open to retain access.';
 }
+function topicLabel(topic) {
+    return topic.replaceAll('_', ' ');
+}
+function renderDiagnosticSummary(summary) {
+    const details = document.createElement('details');
+    details.append(element('summary', `Diagnostic: ${summary.correct} / ${summary.total} correct, ${summary.incorrect} incorrect, ${summary.unanswered} unanswered`));
+    details.append(element('p', 'Practice includes topics with incorrect or unanswered questions, ordered by the number missed. This short diagnostic is a starting point, not a mastery assessment.'));
+    const table = document.createElement('table');
+    table.append(element('caption', 'Results from your saved diagnostic'));
+    const head = document.createElement('thead');
+    const headings = document.createElement('tr');
+    for (const title of ['Topic', 'Correct', 'Incorrect', 'Unanswered']) {
+        const cell = element('th', title);
+        cell.scope = 'col';
+        headings.append(cell);
+    }
+    head.append(headings);
+    const body = document.createElement('tbody');
+    for (const topic of summary.topics) {
+        const row = document.createElement('tr');
+        const label = element('th', topicLabel(topic.topic));
+        label.scope = 'row';
+        row.append(label);
+        for (const key of ['correct', 'incorrect', 'unanswered']) row.append(element('td', topic[key]));
+        body.append(row);
+    }
+    table.append(head, body);
+    details.append(table);
+    reportBox.append(details);
+}
 function renderSession(data) {
     activeQuestion = data.practice_question;
     showDiagnostic(false);
     resumeControls.hidden = false;
     resumeButton.textContent = 'Resume latest saved progress';
     reportBox.replaceChildren(element('h2', data.state.status === 'complete' ? 'Practice cycle complete' : 'Saved progress'));
+    renderDiagnosticSummary(data.diagnostic_summary);
     const correct = data.history.filter(attempt => attempt.is_correct).length;
     reportBox.append(element('p', `${data.history.length} practice answers saved; ${correct} correct.`));
-    reportBox.append(element('p', `Remaining topics: ${data.state.weak_topics.join(', ') || 'None in this cycle'}`));
+    reportBox.append(element('p', `Remaining topics: ${data.state.weak_topics.map(topicLabel).join(', ') || 'None in this cycle'}`));
     if (data.state.current_topic) {
-        reportBox.append(element('p', `Current focus: ${data.state.current_topic}`));
+        reportBox.append(element('p', `Current focus: ${topicLabel(data.state.current_topic)}`));
         reportBox.append(element('p', `Topic progress: ${data.state.correct_streak} / ${data.state.target_correct} consecutive correct answers.`));
         reportBox.append(element('p', 'A wrong answer resets this streak. Reaching the target moves you to the next topic; it does not measure long-term mastery.'));
     }

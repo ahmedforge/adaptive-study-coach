@@ -32,3 +32,19 @@ def evaluate_diagnostic(
         )
 
     return results
+
+
+
+def summarize_diagnostic(results: list[DiagnosticResult]) -> dict:
+    """Describe this diagnostic sample without inferring mastery or error causes."""
+    totals = {'total': len(results), 'correct': 0, 'incorrect': 0, 'unanswered': 0}
+    topics = {}
+    for result in results:
+        topic = topics.setdefault(result.topic, {
+            'topic': result.topic, 'total': 0, 'correct': 0, 'incorrect': 0, 'unanswered': 0})
+        category = ('correct' if result.is_correct else
+                    'unanswered' if result.error_type == 'unanswered' else 'incorrect')
+        totals[category] += 1
+        topic['total'] += 1
+        topic[category] += 1
+    return {**totals, 'topics': list(topics.values())}

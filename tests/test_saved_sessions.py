@@ -248,3 +248,36 @@ def test_legacy_saved_session_keeps_one_answer_target(client, store, monkeypatch
         'question_id': data['practice_question']['id'], 'selected_answer': '5'})
     assert result.status_code == 200
     assert result.json()['state']['status'] == 'complete'
+
+
+def test_diagnostic_review_is_saved_and_does_not_change_during_practice(client):
+    questions = load_questions()[:12]
+    submission = diagnostic()
+    submission['answers'][1]['selected_answer'] = next(
+        option for option in questions[1].options if option != questions[1].correct_answer)
+    created = client.post('/sessions', json=submission)
+    assert created.status_code == 201
+    data = created.json()
+    headers = {'Authorization': 'Bearer ' + data['session_token']}
+    summary = data['diagnostic_summary']
+    assert {key: summary[key] for key in ['total', 'correct', 'incorrect', 'unanswered']} == {
+        'total': 12, 'correct': 10, 'incorrect': 1, 'unanswered': 1}
+    assert summary['topics'][0]['unanswered'] == 1
+    assert summary['topics'][1]['incorrect'] == 1
+    assert client.get('/sessions/current', headers=headers).json()['diagnostic_summary'] == summary
+    updated = client.post('/sessions/current/answers', headers=headers, json={
+        'question_id': data['practice_question']['id'], 'selected_answer': '5'})
+    assert updated.status_code == 200
+    assert updated.json()['diagnostic_summary'] == summary
+
+
+def test_all_correct_diagnostic_has_review_and_no_practice(client):
+    submission = {'answers': [{'question_id': q.id, 'selected_answer': q.correct_answer}
+                             for q in load_questions()[:12]]}
+    response = client.post('/sessions', json=submission)
+    assert response.status_code == 201
+    data = response.json()
+    assert data['diagnostic_summary']['correct'] == 12
+    assert data['diagnostic_summary']['incorrect'] == 0
+    assert data['diagnostic_summary']['unanswered'] == 0
+    assert data['practice_question'] is None
