@@ -700,7 +700,7 @@ changes, but this command is intended for one local editor at a time.
 `.github/workflows/checks.yml` runs on pushes, pull requests, and manual dispatch.
 The **Project checks** workflow first validates the complete question bank and
 prints topic/difficulty coverage. If that succeeds, a second job installs the CPU
-runtime, checks both browser scripts with Node.js, and runs the complete pytest
+runtime, checks browser scripts with Node.js, and runs the complete pytest
 suite on Python 3.12. A `pytest-report` artifact contains the JUnit XML results
 when pytest runs, retained for seven days.
 
@@ -726,6 +726,9 @@ python -m tools.question_bank validate
 python -m tools.question_bank coverage
 node --check app/static/app.js
 node --check app/static/exam.js
+node --check app/static/session-library.js
+node --check app/static/dashboard.js
+node --test tests/session-library.test.cjs
 GEMINI_API_KEY= python -m pytest -q --junitxml=reports/pytest.xml
 ```
 
@@ -763,3 +766,38 @@ index are snapshots. Local tests include a clean-process smoke check with an
 empty model cache and offline mode, concurrent first requests, recovery after a
 failed load, and saved-progress preservation. The real semantic retrieval test
 still exercises the actual embedding model separately.
+
+## Progress dashboard and saved-session library
+
+Open `/dashboard` from the study or exam screen to review sessions retained by
+this browser. The dashboard shows practice answer counts, completed exam scores,
+separate practice/exam results by topic, and up to five topics with the most missed
+or unanswered questions across completed exams. Different papers and repeated
+practice attempts are not comparable mastery measurements.
+
+Session cards show their status and saved timestamps, filter by practice/exam,
+and open ten at a time. Opening a card sets the corresponding browser resume
+link and resumes that exact session. Expired but ungraded exams are labelled
+**Time elapsed**; open their report to finalize saved answers. Merely viewing the
+dashboard does not finalize exams or change any practice progress.
+
+A shared browser library remembers up to 50 practice/exam token references,
+including new sessions, exam revision plans, and resumed sessions. Current resume
+tokens are migrated automatically when loading a page. Earlier overwritten tokens
+from before this feature cannot be recovered. Clearing browser storage loses these
+links; changing servers/databases can make them unavailable. Database records are
+not deleted when a link ages out of the browser library. Storage access must be
+enabled for retention and resume navigation. There are no user accounts or
+cross-device synchronization.
+
+`POST /progress/summary` accepts `sessions`, an array of up to 50 objects with
+`kind` (`practice` or `exam`) and `token`. It looks up only those bearer capabilities
+and deduplicates repeated references. Successful summary responses use input indices to identify cards and omit
+tokens, questions, answer keys, and active-exam scores. There is no endpoint to enumerate the database's sessions. Per-topic exam
+aggregates include completed papers only; practice aggregates include saved
+practice attempts only, without counting diagnostics as practice.
+
+GitHub checks cover both dashboard scripts and run the browser-library unit tests
+with `node --test tests/session-library.test.cjs`. Python tests cover access
+isolation, aggregate counts, legacy records, read-only expiry handling, and storage
+failure responses. Browser testing covers the complete dashboard/resume flow.

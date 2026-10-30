@@ -48,6 +48,7 @@ function savedMessage() {
         : 'Saved on this server, but browser storage is blocked. Keep this tab open to retain access.';
 }
 function applyExam(data) {
+    window.StudyLibrary?.remember('exam', token);
     exam = data;
     localDeadline = Date.now() + Math.max(0, Date.parse(data.expires_at) - Date.parse(data.server_now));
     $('exam-setup').hidden = true;
@@ -153,7 +154,10 @@ function renderRevisionAction(box) {
         busy(true); status('Preparing your saved revision plan…');
         try {
             const data = await request('/exams/current/revision', 'POST');
-            try { localStorage.setItem('study-coach-session:v1', data.session_token); }
+            try {
+                localStorage.setItem('study-coach-session:v1', data.session_token);
+                window.StudyLibrary?.remember('practice', data.session_token);
+            }
             catch { throw new Error('Revision is saved, but browser storage is blocked. Enable storage here and retry to open it.'); }
             const link = node('a', 'Open targeted revision'); link.href = '/?resume=1';
             panel.append(node('p', 'Your revision plan is ready.'), link);
@@ -233,3 +237,5 @@ $('confirm-submit').addEventListener('click', async () => {
 });
 if (token) { $('exam-setup').hidden = true; $('resume-exam').hidden = false; $('new-exam').hidden = false; status('A saved exam is available. Resume it to continue or view its report.'); }
 else status('Ready to start.');
+
+if (token && new URLSearchParams(window.location.search).get('resume') === '1') resume();

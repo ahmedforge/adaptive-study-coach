@@ -72,6 +72,10 @@ jobs:
         run: |
           node --check app/static/app.js
           node --check app/static/exam.js
+          node --check app/static/session-library.js
+          node --check app/static/dashboard.js
+      - name: Test browser session library
+        run: node --test tests/session-library.test.cjs
       - name: Run complete test suite
         run: python -m pytest -q --junitxml=reports/pytest.xml
       - name: Upload test report

@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your progress · Adaptive AI Study Coach</title>
+<link rel="stylesheet" href="/static/exam.css"><link rel="stylesheet" href="/static/dashboard.css">
+<script src="/static/session-library.js" defer></script><script src="/static/dashboard.js" defer></script>
+</head><body>
+<header><a href="/">← Study coach</a><h1>Your learning progress</h1>
+<p>A view of practice and exams saved in this browser on this server.</p>
+<div class="toolbar"><a href="/">Practice</a><a href="/exam">Mock exams</a><button id="refresh-progress" type="button">Refresh progress</button></div></header>
+<p id="progress-status" role="status" aria-live="polite"></p>
+<div id="progress-overview" class="metrics"></div>
+<section id="revisit" class="card" hidden></section>
+<section id="topic-progress" class="card" hidden></section>
+<section class="card"><h2>Saved sessions</h2>
+<label>Show <select id="session-filter"><option value="all">All sessions</option><option value="practice">Practice only</option><option value="exam">Exams only</option></select></label>
+<div id="saved-sessions"></div><button id="more-sessions" type="button" hidden>Show more sessions</button>
+</section>
+<footer><p>This browser keeps up to 50 session links. Clearing its storage loses access to that history. Older sessions are discoverable only if their token is still saved here. This is a local progress view, not an account or cross-device sync.</p>
+<p>Practice accuracy and exam scores are shown separately. Different question samples make scores approximate evidence for planning, not a measurement of mastery.</p></footer>
+</body></html>

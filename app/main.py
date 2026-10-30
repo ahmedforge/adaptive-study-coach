@@ -7,6 +7,7 @@ from app.routers.agent import router as agent_router
 from app.routers.sessions import router as sessions_router
 
 from app.routers.exams import router as exams_router
+from app.routers.progress import router as progress_router
 
 app = FastAPI(
     title="Adaptive AI Study Coach",
@@ -18,6 +19,7 @@ app.include_router(retrieval_router)
 app.include_router(agent_router)
 app.include_router(sessions_router)
 app.include_router(exams_router)
+app.include_router(progress_router)
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
 
@@ -31,3 +33,8 @@ def home():
 @app.get('/exam', include_in_schema=False)
 def exam_page():
     return FileResponse('app/static/exam.html')
+
+
+@app.get('/dashboard', include_in_schema=False)
+def dashboard_page():
+    return FileResponse('app/static/dashboard.html')

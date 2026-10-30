@@ -134,6 +134,7 @@ function renderPracticeHistory(history) {
     reportBox.append(details);
 }
 function renderSession(data, reviewAnswer = true) {
+    window.StudyLibrary?.remember('practice', sessionToken);
     activeQuestion = null;
     showDiagnostic(false);
     resumeControls.hidden = false;

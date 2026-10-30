@@ -1,0 +1,8 @@
+.metrics { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+.metric { padding: 18px; background: white; border: 1px solid #dbe2ec; border-radius: 12px; }
+.metric strong { display: block; font-size: 1.9rem; color: #174f83; }
+.session { border-top: 1px solid #dbe2ec; padding: 18px 0; }
+.session h3 { margin: 0; }
+.session p { margin: 8px 0; }
+#saved-sessions { overflow-wrap: anywhere; }
+#more-sessions { margin-top: 16px; }
