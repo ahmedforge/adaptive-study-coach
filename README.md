@@ -31,7 +31,7 @@ The system:
 5. Retrieves a semantically relevant seed question using FAISS.
 6. Uses Gemini to generate a fresh question variant.
 7. Grades the student's practice response.
-8. Repeats the same topic after a wrong answer or advances after a correct answer.
+8. In saved sessions, practices each topic until the consecutive-correct target is reached (two by default). Wrong answers reset the streak.
 
 ---
 
@@ -78,7 +78,7 @@ Auto-Grading
    |                      |
 Incorrect              Correct
    |                      |
-Repeat Topic        Next Weak Topic
+Repeat Topic        Check Streak Target
    |                      |
    +------- Agent Loop ----+
 ```
@@ -86,6 +86,9 @@ Repeat Topic        Next Weak Topic
 ---
 
 ## RAG Pipeline
+
+After a correct answer, saved sessions repeat the topic until the streak target
+is reached, then advance to the next weak topic.
 
 The retrieval-augmented generation pipeline has three main stages.
 
@@ -475,8 +478,14 @@ answer keys are excluded from the session API response until an answer is saved.
   recovery, cross-device sync, expiry, or automatic retention policy. Clearing
   browser storage loses the resume token. If storage is blocked, the interface
   explains that access lasts only while the tab retains its token.
-- The existing one-correct-answer topic advancement remains unchanged; completing
-  a cycle is not evidence of long-term mastery or improved exam scores.
+- New saved sessions require two consecutive correct answers per topic. Set
+  `STUDY_COACH_TARGET_CORRECT` to an integer from 1 to 5 to change the target for
+  new sessions. Each session retains its target across restarts and configuration
+  changes. Wrong answers reset the current streak; moving to another topic starts
+  a fresh streak. The screen shows current progress.
+- Older saved sessions without target metadata and the legacy stateless agent API
+  retain their one-correct-answer default. Completing a practice cycle is not
+  evidence of long-term mastery or improved exam scores.
 
 The new UI uses `POST /sessions`, `GET /sessions/current`, and
 `POST /sessions/current/answers`. Resume and answer calls use a Bearer token;

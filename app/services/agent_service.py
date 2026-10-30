@@ -36,10 +36,17 @@ def update_after_practice(
         return state
 
     if not is_correct:
+        state.correct_streak = 0
         state.attempts_on_topic += 1
         state.status = "practicing"
         return state
 
+    state.correct_streak += 1
+    if state.correct_streak < state.target_correct:
+        state.status = "practicing"
+        return state
+
+    state.correct_streak = 0
     state.attempts_on_topic = 0
 
     if state.current_topic in state.weak_topics:

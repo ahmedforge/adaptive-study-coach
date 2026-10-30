@@ -17,6 +17,7 @@ def store(tmp_path):
 
 @pytest.fixture
 def client(store, monkeypatch):
+    monkeypatch.delenv('STUDY_COACH_TARGET_CORRECT', raising=False)
     def practice(state, **kwargs):
         if state.status == 'complete': return None
         return PracticeQuestion(question='What is 2 + 3?', options=['3', '4', '5', '6'],
@@ -71,11 +72,17 @@ def test_wrong_answer_saves_history_and_keeps_topic(client):
 
 def test_correct_answer_completes_last_topic_and_survives_resume(client):
     data, headers = start(client)
-    saved = client.post('/sessions/current/answers', headers=headers, json={
+    first = client.post('/sessions/current/answers', headers=headers, json={
         'question_id': data['practice_question']['id'], 'selected_answer': '5'}).json()
+    assert first['state']['status'] == 'practicing'
+    assert first['state']['correct_streak'] == 1
+    assert first['state']['target_correct'] == 2
+    assert client.get('/sessions/current', headers=headers).json() == first
+    saved = client.post('/sessions/current/answers', headers=headers, json={
+        'question_id': first['practice_question']['id'], 'selected_answer': '5'}).json()
     assert saved['state']['status'] == 'complete'
     assert saved['practice_question'] is None
-    assert len(saved['history']) == 1
+    assert len(saved['history']) == 2
     assert client.get('/sessions/current', headers=headers).json() == saved
 
 
@@ -190,3 +197,54 @@ def test_old_saved_question_without_seed_id_still_advances(client, store):
 @pytest.mark.parametrize('params', [{'query':'x', 'top_k':0}, {'query':'x', 'top_k':21}, {'query':' '}])
 def test_search_rejects_invalid_input(client, params):
     assert client.get('/retrieval/search', params=params).status_code == 422
+
+
+def test_correct_retry_does_not_advance_streak_twice(client):
+    data, headers = start(client)
+    answer = {'question_id': data['practice_question']['id'], 'selected_answer': '5'}
+    first = client.post('/sessions/current/answers', headers=headers, json=answer).json()
+    retry = client.post('/sessions/current/answers', headers=headers, json=answer).json()
+    assert retry == first
+    assert retry['state']['correct_streak'] == 1
+    assert retry['state']['status'] == 'practicing'
+
+
+def test_target_is_snapshotted_and_wrong_answer_resets_saved_streak(client, monkeypatch):
+    monkeypatch.setenv('STUDY_COACH_TARGET_CORRECT', '3')
+    data, headers = start(client)
+    monkeypatch.setenv('STUDY_COACH_TARGET_CORRECT', '1')
+    for selected, expected in [('5', 1), ('3', 0), ('5', 1), ('5', 2)]:
+        response = client.post('/sessions/current/answers', headers=headers, json={
+            'question_id': data['practice_question']['id'], 'selected_answer': selected})
+        assert response.status_code == 200
+        data = response.json()
+        assert data['state']['target_correct'] == 3
+        assert data['state']['correct_streak'] == expected
+        assert data['state']['status'] == 'practicing'
+    final = client.post('/sessions/current/answers', headers=headers, json={
+        'question_id': data['practice_question']['id'], 'selected_answer': '5'}).json()
+    assert final['state']['status'] == 'complete'
+    assert final['state']['correct_streak'] == 0
+
+
+@pytest.mark.parametrize('target', ['0', '6', 'two', '2.5', ''])
+def test_invalid_target_configuration_rejects_new_session(client, monkeypatch, target):
+    monkeypatch.setenv('STUDY_COACH_TARGET_CORRECT', target)
+    assert client.post('/sessions', json=diagnostic()).status_code == 503
+
+
+def test_legacy_saved_session_keeps_one_answer_target(client, store, monkeypatch):
+    data, headers = start(client)
+    token = data['session_token']
+    version, payload = store.load(token)
+    payload['state'].pop('target_correct')
+    payload['state'].pop('correct_streak')
+    assert store.save(token, version, payload)
+    monkeypatch.setenv('STUDY_COACH_TARGET_CORRECT', '5')
+    restored = client.get('/sessions/current', headers=headers).json()
+    assert restored['state']['target_correct'] == 1
+    assert restored['state']['correct_streak'] == 0
+    result = client.post('/sessions/current/answers', headers=headers, json={
+        'question_id': data['practice_question']['id'], 'selected_answer': '5'})
+    assert result.status_code == 200
+    assert result.json()['state']['status'] == 'complete'

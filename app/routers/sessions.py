@@ -54,7 +54,7 @@ def question_record(state, history=None):
 def public_session(data):
     question = data['question']
     return {
-        'state': data['state'],
+        'state': AgentState.model_validate(data['state']).model_dump(),
         'practice_question': ({key: question[key] for key in
             ['id', 'question', 'options', 'generation_source']} if question else None),
         'history': data['history'], 'updated_at': data['updated_at'],
@@ -71,7 +71,14 @@ def create_session(submission: DiagnosticSubmission, store=Depends(get_store)):
     if any(a.selected_answer is not None and a.selected_answer not in expected[a.question_id].options
            for a in submission.answers):
         raise HTTPException(422, 'Select a listed diagnostic option or leave it unanswered.')
-    state = identify_weak_topics(AgentState(diagnostic_results=evaluate_diagnostic(submission)))
+    try:
+        target = int(os.getenv('STUDY_COACH_TARGET_CORRECT', '2'))
+        if not 1 <= target <= 5:
+            raise ValueError('out of range')
+    except ValueError as exc:
+        raise HTTPException(503, 'Practice target configuration must be an integer from 1 to 5.') from exc
+    state = identify_weak_topics(AgentState(
+        diagnostic_results=evaluate_diagnostic(submission), target_correct=target))
     data = {'state': state.model_dump(), 'question': question_record(state),
             'history': [], 'updated_at': now(), 'last_answer': None}
     try:

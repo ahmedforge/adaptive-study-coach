@@ -54,7 +54,11 @@ function renderSession(data) {
     const correct = data.history.filter(attempt => attempt.is_correct).length;
     reportBox.append(element('p', `${data.history.length} practice answers saved; ${correct} correct.`));
     reportBox.append(element('p', `Remaining topics: ${data.state.weak_topics.join(', ') || 'None in this cycle'}`));
-    if (data.state.current_topic) reportBox.append(element('p', `Current focus: ${data.state.current_topic}`));
+    if (data.state.current_topic) {
+        reportBox.append(element('p', `Current focus: ${data.state.current_topic}`));
+        reportBox.append(element('p', `Topic progress: ${data.state.correct_streak} / ${data.state.target_correct} consecutive correct answers.`));
+        reportBox.append(element('p', 'A wrong answer resets this streak. Reaching the target moves you to the next topic; it does not measure long-term mastery.'));
+    }
     if (data.history.length) {
         const latest = data.history[data.history.length - 1];
         reportBox.append(element('h3', 'Last answer'));

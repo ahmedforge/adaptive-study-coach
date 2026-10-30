@@ -110,3 +110,24 @@ def test_wrong_topic_result_cannot_be_generated(monkeypatch):
     monkeypatch.setattr(service, 'generate_variant', lambda seed: (_ for _ in ()).throw(AssertionError('must not generate')))
     state = AgentState(diagnostic_results=[], current_topic='algebra')
     assert service.get_practice_question(state) is None
+
+
+def test_target_requires_consecutive_correct_and_resets_between_topics():
+    state = AgentState(diagnostic_results=[], weak_topics=['algebra', 'trigonometry'],
+        current_topic='algebra', status='practicing', target_correct=2)
+    update_after_practice(state, True)
+    assert state.current_topic == 'algebra'
+    assert state.correct_streak == 1
+    update_after_practice(state, False)
+    assert state.correct_streak == 0
+    update_after_practice(state, True)
+    assert state.current_topic == 'algebra'
+    update_after_practice(state, True)
+    assert state.current_topic == 'trigonometry'
+    assert state.correct_streak == 0
+    assert state.attempts_on_topic == 0
+    update_after_practice(state, True)
+    assert state.status == 'practicing'
+    update_after_practice(state, True)
+    assert state.status == 'complete'
+    assert state.correct_streak == 0
