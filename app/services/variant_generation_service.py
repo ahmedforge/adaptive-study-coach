@@ -52,7 +52,7 @@ def _fallback(seed: Question) -> PracticeQuestion:
     return PracticeQuestion(
         question=seed.question, options=seed.options,
         correct_answer=seed.correct_answer, explanation=seed.explanation,
-        generation_source="seed_fallback",
+        generation_source="seed_fallback", seed_question_id=seed.id,
     )
 
 
@@ -91,4 +91,5 @@ Seed options: {seed_question.options}
     except (ValueError, TypeError):
         logger.warning("Question provider returned an invalid variant; using seed fallback")
         return fallback
-    return PracticeQuestion(**question.model_dump(), generation_source="generated")
+    return PracticeQuestion(**question.model_dump(), generation_source="generated",
+                            seed_question_id=seed_question.id)

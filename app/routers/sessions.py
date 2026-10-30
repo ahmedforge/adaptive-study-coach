@@ -42,8 +42,10 @@ def read_session(store, token):
     return record
 
 
-def question_record(state):
-    question = get_practice_question(state)
+def question_record(state, history=None):
+    recent = [attempt['seed_question_id'] for attempt in (history or [])
+              if attempt.get('seed_question_id')]
+    question = get_practice_question(state, recent_question_ids=recent)
     if state.status != 'complete' and question is None:
         raise HTTPException(503, 'Practice is unavailable. Your previous progress is unchanged.')
     return ({**question.model_dump(), 'id': uuid4().hex} if question else None)
@@ -108,11 +110,12 @@ def answer_question(answer: PracticeAnswer,
     is_correct = answer.selected_answer == question['correct_answer']
     attempt = {'question_id': question['id'], 'topic': state.current_topic,
         'question': question['question'], 'selected_answer': answer.selected_answer,
+        'seed_question_id': question.get('seed_question_id'),
         'correct_answer': question['correct_answer'], 'is_correct': is_correct,
         'explanation': question['explanation'], 'answered_at': now()}
     state = update_after_practice(state, is_correct)
     # Model/retrieval work happens before the short optimistic database update.
-    data['question'] = question_record(state)
+    data['question'] = question_record(state, data['history'] + [attempt])
     data['state'] = state.model_dump()
     data['history'].append(attempt)
     data['last_answer'] = answer.model_dump()

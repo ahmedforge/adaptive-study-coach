@@ -36,6 +36,7 @@ def test_valid_variant_preserves_answer_and_provenance(monkeypatch, seed, varian
     assert result.question == variant['question']
     assert result.correct_answer == "6"
     assert result.generation_source == "generated"
+    assert result.seed_question_id == seed.id
 
 
 def test_outer_json_fence_is_accepted(monkeypatch, seed, variant):
@@ -48,6 +49,7 @@ def test_unusable_response_falls_back(monkeypatch, seed, text):
     respond(monkeypatch, text)
     result = service.generate_variant(seed)
     assert result.generation_source == 'seed_fallback'
+    assert result.seed_question_id == seed.id
     assert result.question == seed.question
     assert result.options == seed.options
     assert result.correct_answer == seed.correct_answer

@@ -328,7 +328,7 @@ python -m pytest -q
 Local result (October 30, 2026; no live Gemini calls):
 
 ```text
-60 passed
+75 passed
 ```
 
 ---
@@ -364,7 +364,7 @@ http://127.0.0.1:8000/
 - Gemini-generated practice variants
 - Adaptive state-machine loop
 - MLflow retrieval tracking
-- 60 automated tests passing
+- 75 automated tests passing
 - Dockerized application
 
 ---
@@ -486,3 +486,25 @@ remain stateless for compatibility and are not used for saved practice.
 Local validation on October 30, 2026: **60 tests passed**, including restart
 recovery, access isolation, server-side grading, response-loss retries, stale
 updates, invalid diagnostics, and failed saves. No live Gemini calls were used.
+
+## Topic-safe, varied practice seeds
+
+Practice retrieval ranks the bank but selects seeds only from the learner's exact
+current topic. Diagnostic question IDs and saved practice seed IDs are treated as
+seen: unseen seeds come first. After all seeds in that topic have been seen, the
+least recently used one is selected, rather than repeating the top search result
+forever. The current bank has 96 questions across 12 topics, eight per topic.
+
+Each generated or fallback practice question records its `seed_question_id` on
+the server. Saved attempts retain that provenance, so selection continues to
+rotate after reload. Existing sessions without seed metadata remain readable;
+only their newly recorded attempts contribute seed history. Unknown topics
+produce no seed rather than silently selecting another topic's question.
+
+The seed's topic is enforced; generated question topic/skill accuracy and
+mathematical correctness still require separate evaluation. This change is not
+spaced repetition, difficulty adaptation, or a mastery estimate. MLflow tracking
+is best effort: a tracking outage does not block a valid retrieval. The general
+search API validates query length and requires `top_k` between 1 and 20.
+
+Local selection verification (October 30, 2026): **75 tests passed** with cached embeddings and no live Gemini calls.

@@ -83,3 +83,30 @@ def test_last_topic_complete():
     assert state.weak_topics == []
     assert state.current_topic is None
     assert state.status == "complete"
+
+from types import SimpleNamespace
+import app.services.agent_service as service
+
+
+def test_practice_passes_topic_and_seen_diagnostic_and_practice_ids(monkeypatch):
+    calls = {}
+    seed = SimpleNamespace(id='seed2', topic='algebra')
+    def search(**kwargs):
+        calls.update(kwargs)
+        return [{'question': seed, 'score': .6}]
+    monkeypatch.setattr(service, 'retriever', SimpleNamespace(search=search))
+    monkeypatch.setattr(service, 'generate_variant', lambda seed: seed.id)
+    state = AgentState(diagnostic_results=[DiagnosticResult(question_id='diagnostic-seed',
+        topic='algebra', subtopic='addition', is_correct=False, error_type='concept_error')],
+        current_topic='algebra', weak_topics=['algebra'], status='practicing')
+    assert service.get_practice_question(state, recent_question_ids=['previous-seed']) == 'seed2'
+    assert calls['topic'] == 'algebra'
+    assert calls['recent_question_ids'] == ['diagnostic-seed', 'previous-seed']
+
+
+def test_wrong_topic_result_cannot_be_generated(monkeypatch):
+    monkeypatch.setattr(service, 'retriever', SimpleNamespace(search=lambda **kwargs:
+        [{'question': SimpleNamespace(topic='trigonometry'), 'score': .9}]))
+    monkeypatch.setattr(service, 'generate_variant', lambda seed: (_ for _ in ()).throw(AssertionError('must not generate')))
+    state = AgentState(diagnostic_results=[], current_topic='algebra')
+    assert service.get_practice_question(state) is None

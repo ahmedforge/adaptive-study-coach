@@ -57,16 +57,19 @@ def update_after_practice(
 retriever = QuestionRetriever()
 
 
-def get_practice_question(state: AgentState):
+def get_practice_question(state: AgentState, *, recent_question_ids: list[str] | None = None):
     if state.current_topic is None:
         return None
 
     results = retriever.search(
         query=state.current_topic,
         top_k=1,
+        topic=state.current_topic,
+        recent_question_ids=[result.question_id for result in state.diagnostic_results]
+                            + (recent_question_ids or []),
     )
 
-    if not results:
+    if not results or results[0]["question"].topic != state.current_topic:
         return None
 
     seed_question = results[0]["question"]

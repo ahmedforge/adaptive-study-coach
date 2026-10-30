@@ -1,4 +1,4 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Query
 
 from app.services.retrieval_service import QuestionRetriever
 
@@ -12,7 +12,10 @@ retriever = QuestionRetriever()
 
 
 @router.get("/search")
-def search_questions(query: str, top_k: int = 3):
+def search_questions(query: str = Query(min_length=1, max_length=500),
+                     top_k: int = Query(default=3, ge=1, le=20)):
+    if not query.strip():
+        raise HTTPException(422, "Enter a non-empty search query.")
     results = retriever.search(query, top_k)
 
     return {

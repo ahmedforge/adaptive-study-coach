@@ -17,10 +17,10 @@ def store(tmp_path):
 
 @pytest.fixture
 def client(store, monkeypatch):
-    def practice(state):
+    def practice(state, **kwargs):
         if state.status == 'complete': return None
         return PracticeQuestion(question='What is 2 + 3?', options=['3', '4', '5', '6'],
-            correct_answer='5', explanation='Two plus three equals five.', generation_source='seed_fallback')
+            correct_answer='5', explanation='Two plus three equals five.', generation_source='seed_fallback', seed_question_id='test-seed')
     monkeypatch.setattr(sessions, 'get_practice_question', practice)
     app.dependency_overrides[sessions.get_store] = lambda: store
     with TestClient(app) as value: yield value
@@ -142,7 +142,7 @@ def test_save_failure_does_not_report_success_or_lose_old_progress(client, store
 
 def test_unavailable_next_question_keeps_previous_state(client, monkeypatch):
     data, headers = start(client)
-    monkeypatch.setattr(sessions, 'get_practice_question', lambda state: None)
+    monkeypatch.setattr(sessions, 'get_practice_question', lambda state, **kwargs: None)
     result = client.post('/sessions/current/answers', headers=headers, json={
         'question_id': data['practice_question']['id'], 'selected_answer': '3'})
     assert result.status_code == 503
@@ -157,3 +157,36 @@ def test_store_rejects_stale_concurrent_version(store):
     assert store.save(token, version, {'history': ['first']})
     assert not store.save(token, version, {'history': ['second']})
     assert store.load(token)[1]['history'] == ['first']
+
+
+def test_session_records_seed_and_supplies_it_to_next_selection(client, monkeypatch):
+    seen = []
+    def practice(state, *, recent_question_ids=None):
+        seen.append(list(recent_question_ids or []))
+        return PracticeQuestion(question='What is 2 + 3?', options=['3', '4', '5', '6'],
+            correct_answer='5', explanation='Two plus three equals five.',
+            generation_source='seed_fallback', seed_question_id='seed-a')
+    monkeypatch.setattr(sessions, 'get_practice_question', practice)
+    data, headers = start(client)
+    result = client.post('/sessions/current/answers', headers=headers, json={
+        'question_id': data['practice_question']['id'], 'selected_answer': '3'})
+    assert result.status_code == 200
+    assert result.json()['history'][0]['seed_question_id'] == 'seed-a'
+    assert seen == [[], ['seed-a']]
+
+
+def test_old_saved_question_without_seed_id_still_advances(client, store):
+    data, headers = start(client)
+    token = data['session_token']
+    version, payload = store.load(token)
+    payload['question'].pop('seed_question_id', None)
+    assert store.save(token, version, payload)
+    response = client.post('/sessions/current/answers', headers=headers, json={
+        'question_id': data['practice_question']['id'], 'selected_answer': '3'})
+    assert response.status_code == 200
+    assert response.json()['history'][0]['seed_question_id'] is None
+
+
+@pytest.mark.parametrize('params', [{'query':'x', 'top_k':0}, {'query':'x', 'top_k':21}, {'query':' '}])
+def test_search_rejects_invalid_input(client, params):
+    assert client.get('/retrieval/search', params=params).status_code == 422

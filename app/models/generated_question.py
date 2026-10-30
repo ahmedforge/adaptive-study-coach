@@ -29,3 +29,4 @@ class GeneratedQuestion(BaseModel):
 
 class PracticeQuestion(GeneratedQuestion):
     generation_source: Literal["generated", "seed_fallback"] = "generated"
+    seed_question_id: str | None = None
