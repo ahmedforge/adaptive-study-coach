@@ -75,8 +75,8 @@ function renderDiagnosticSummary(summary) {
     details.append(table);
     reportBox.append(details);
 }
-function renderSession(data) {
-    activeQuestion = data.practice_question;
+function renderSession(data, reviewAnswer = true) {
+    activeQuestion = null;
     showDiagnostic(false);
     resumeControls.hidden = false;
     resumeButton.textContent = 'Resume latest saved progress';
@@ -92,7 +92,10 @@ function renderSession(data) {
     }
     if (data.history.length) {
         const latest = data.history[data.history.length - 1];
-        reportBox.append(element('h3', 'Last answer'));
+        const feedbackHeading = element('h3', 'Last answer');
+        feedbackHeading.id = 'answer-review-heading';
+        feedbackHeading.tabIndex = -1;
+        reportBox.append(feedbackHeading);
         reportBox.append(element('p', latest.question));
         reportBox.append(element('p', `${latest.is_correct ? 'Correct' : 'Incorrect'}. Your answer: ${latest.selected_answer}. Correct answer: ${latest.correct_answer}.`));
         reportBox.append(element('p', latest.explanation));
@@ -106,11 +109,27 @@ function renderSession(data) {
         reportBox.append(details);
     }
     practiceBox.replaceChildren();
-    if (!activeQuestion) {
+    if (!data.practice_question) {
         practiceBox.append(element('p', 'This practice cycle is complete. Start a new diagnostic when you are ready.'));
         return;
     }
-    practiceBox.append(element('h2', 'Targeted Practice'));
+    if (reviewAnswer && data.history.length) {
+        practiceBox.append(element('h2', 'Review before continuing'));
+        practiceBox.append(element('p', 'Your answer and explanation are saved above. Take a moment to review them before the next question.'));
+        const next = element('button', 'Continue practice');
+        next.type = 'button';
+        next.addEventListener('click', () => {
+            renderSession(data, false);
+            document.getElementById('practice-heading').focus();
+        });
+        practiceBox.append(next);
+        return;
+    }
+    activeQuestion = data.practice_question;
+    const practiceHeading = element('h2', 'Targeted Practice');
+    practiceHeading.id = 'practice-heading';
+    practiceHeading.tabIndex = -1;
+    practiceBox.append(practiceHeading);
     practiceBox.append(element('p', activeQuestion.generation_source === 'seed_fallback'
         ? 'Question bank practice - AI generation unavailable or rejected.' : 'AI-generated practice'));
     practiceBox.append(element('p', activeQuestion.question));
@@ -160,6 +179,7 @@ form.addEventListener('submit', async event => {
     finally { busy(false); }
 });
 async function submitPracticeAnswer() {
+    if (!activeQuestion) return;
     const selected = document.querySelector('input[name="practice_answer"]:checked');
     if (!selected) { statusBox.textContent = 'Please select an answer.'; return; }
     const body = { question_id: activeQuestion.id, selected_answer: selected.value };
@@ -169,6 +189,7 @@ async function submitPracticeAnswer() {
             method: 'POST', headers: headers(), body: JSON.stringify(body),
         });
         renderSession(data); savedStatus();
+        document.getElementById('answer-review-heading').focus();
     } catch (error) { statusBox.textContent = error.message; }
     finally { busy(false); }
 }

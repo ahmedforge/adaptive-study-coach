@@ -529,3 +529,14 @@ This summary is computed from the saved diagnostic, so it remains available afte
 resume and does not change as practice answers accumulate. It also works for older
 saved sessions without adding stored fields. A small diagnostic sample does not
 establish mastery or identify the cause of an incorrect answer.
+
+
+### Review before continuing
+
+After a practice answer is saved, the browser shows the result and explanation
+before revealing the next question. Select **Continue practice** when ready.
+Resuming a session with practice history returns to this review step. The next
+question is already prepared and saved by the server; continuing reveals it
+without submitting another answer or changing progress. Keyboard focus moves to
+the feedback after submission and to the question when continuing. Final answers
+still show feedback when the practice cycle is complete.
