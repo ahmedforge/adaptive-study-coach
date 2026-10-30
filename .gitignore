@@ -13,3 +13,6 @@ progress_data/
 
 # Backups created by the reviewed question-bank importer.
 bank_backups/
+
+# Local/CI test reports.
+reports/

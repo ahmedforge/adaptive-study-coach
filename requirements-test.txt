@@ -1,0 +1,3 @@
+-r requirements.txt
+# Explicit TestClient dependency; do not rely on another SDK installing it.
+httpx

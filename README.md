@@ -694,3 +694,43 @@ change to diagnostic selection, exam size/topic coverage, and tests; adding an
 unrecognized topic silently would change the current 12-topic exam design. Avoid
 editing the bank concurrently with an import; the write checks for intervening
 changes, but this command is intended for one local editor at a time.
+
+## Automated checks on GitHub
+
+`.github/workflows/checks.yml` runs on pushes, pull requests, and manual dispatch.
+The **Project checks** workflow first validates the complete question bank and
+prints topic/difficulty coverage. If that succeeds, a second job installs the CPU
+runtime, checks both browser scripts with Node.js, and runs the complete pytest
+suite on Python 3.12. A `pytest-report` artifact contains the JUnit XML results
+when pytest runs, retained for seven days.
+
+The embedding model is public and cached between runs; the first uncached run
+needs to download it. Package installation also needs Internet access. Gemini
+credentials are not required: the workflow leaves `GEMINI_API_KEY` empty, and
+provider behavior is tested with mocks and fallback checks. This does not evaluate
+live Gemini answer quality. Test tracking/progress databases use the runner's
+temporary directory and are not uploaded.
+
+Open the repository's **Actions → Project checks** page after pushing to see the
+first hosted result. Local checks do not confirm that hosted installation and
+execution have passed. No deployment, branch protection, or required-check rule
+is configured by this workflow; repository administrators can make these checks
+required separately.
+
+To run the same validation commands locally, activate the project's environment
+and install test dependencies first:
+
+```bash
+python -m pip install -r requirements-test.txt
+python -m tools.question_bank validate
+python -m tools.question_bank coverage
+node --check app/static/app.js
+node --check app/static/exam.js
+GEMINI_API_KEY= python -m pytest -q --junitxml=reports/pytest.xml
+```
+
+The workflow uses the official GitHub [Python setup](https://github.com/actions/setup-python),
+[Node setup](https://github.com/actions/setup-node), [cache](https://github.com/actions/cache),
+and [artifact](https://github.com/actions/upload-artifact) actions. Dependencies
+remain version-ranged/unpinned as in the runtime requirements; this checks current
+compatibility rather than providing a fully locked build.
