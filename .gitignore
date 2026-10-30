@@ -10,3 +10,6 @@ mlruns/
 progress_data/
 *.sqlite3
 *.sqlite3-*
+
+# Backups created by the reviewed question-bank importer.
+bank_backups/

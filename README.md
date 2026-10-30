@@ -630,3 +630,66 @@ must be enabled for this handoff between pages. If storage is blocked, enable it
 and retry the same action to recover the saved revision plan. The practice screen
 labels the assessment **Mock exam** rather than **Diagnostic**. Older practice
 sessions without source metadata retain their diagnostic label.
+
+## Expanding the question bank
+
+The source bank is `app/data/questions.json`. It currently contains 96 questions,
+eight per topic. The existing labels are 11 easy, 85 medium, and zero hard; these
+are author-provided labels, not calibrated difficulty estimates. Start by filling
+skill gaps and adding reviewed questions at varied difficulty within the existing
+12 topics. Grow in batches of 5–10 so every answer and explanation can be checked.
+
+### Prepare a reviewed JSON batch
+
+Copy `examples/question_batch.json` to your own batch file. Each record needs:
+
+| Field | Format |
+| --- | --- |
+| `id` | Unique stable lowercase identifier, e.g. `limits_009`; never reuse an existing ID |
+| `topic` | Existing topic slug shown in the coverage report |
+| `subtopic` | Lowercase skill slug, e.g. `factorization` |
+| `difficulty` | `easy`, `medium`, or `hard` |
+| `question` | Complete, unambiguous question text |
+| `options` | Exactly four distinct non-empty strings |
+| `correct_answer` | Exact text of one option |
+| `explanation` | Worked solution, including relevant assumptions or restrictions |
+| `source` | Provenance, e.g. an original question or a specific document/page reference |
+
+Use original questions or material you have permission to include. Solve each
+question independently, check that exactly one option is correct, and review the
+distractors and explanation before importing. AI-generated drafts need the same
+review; schema checks do not validate mathematics or difficulty. The two supplied
+examples are original examples for the import format, not automatically added to
+the live bank.
+
+### Inspect, preview, then import
+
+Run from the repository with its virtual environment activated:
+
+```bash
+python -m tools.question_bank validate
+python -m tools.question_bank coverage
+python -m tools.question_bank import --input examples/question_batch.json
+python -m tools.question_bank import --input examples/question_batch.json --write
+```
+
+Import defaults to a dry run. `--write` validates the combined bank, rejects
+colliding IDs or normalized duplicate question text, then appends records while
+preserving the existing order. This matters because the diagnostic uses the first
+12 records. An exact original backup is saved under `app/data/bank_backups/`
+(ignored by Git); the replacement is staged and written atomically, preserving
+file permissions. Review the resulting `git diff` and commit the updated bank.
+Rerunning the same batch fails with a duplicate error rather than adding copies.
+Use `--bank PATH` before the subcommand to work with a different bank.
+
+**Restart the app after importing** so the in-memory embedding/FAISS indexes pick
+up the added questions. Existing mock exams keep their original snapshots. Run
+`python -m pytest -q` after changes; bank validation also runs whenever the
+application loads questions. Exact-prompt duplicate checks cannot detect every
+paraphrased duplicate, ambiguous answer, or mathematical error.
+
+Imports accept existing topics. Adding a new subject or topic requires a separate
+change to diagnostic selection, exam size/topic coverage, and tests; adding an
+unrecognized topic silently would change the current 12-topic exam design. Avoid
+editing the bank concurrently with an import; the write checks for intervening
+changes, but this command is intended for one local editor at a time.

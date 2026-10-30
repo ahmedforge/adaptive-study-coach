@@ -1,0 +1,24 @@
+[
+  {
+    "id": "original_limits_009",
+    "topic": "limits",
+    "subtopic": "factorization",
+    "difficulty": "easy",
+    "question": "What is lim x→5 of (x² - 25)/(x - 5)?",
+    "options": ["0", "5", "10", "25"],
+    "correct_answer": "10",
+    "explanation": "For x ≠ 5, factor x² - 25 = (x - 5)(x + 5) and cancel x - 5. The limit is then 5 + 5 = 10; the original expression need not be defined at x = 5.",
+    "source": "original example"
+  },
+  {
+    "id": "original_quadratics_009",
+    "topic": "quadratic_equations",
+    "subtopic": "factorization",
+    "difficulty": "medium",
+    "question": "What are the roots of x² - 11x + 30 = 0?",
+    "options": ["3 and 10", "-5 and -6", "5 and 6", "2 and 15"],
+    "correct_answer": "5 and 6",
+    "explanation": "Find two numbers whose product is 30 and whose sum is -11: -5 and -6. Thus x² - 11x + 30 = (x - 5)(x - 6), so x = 5 or x = 6.",
+    "source": "original example"
+  }
+]

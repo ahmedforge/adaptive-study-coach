@@ -5,7 +5,7 @@ def test_load_questions():
     questions = load_questions()
 
     assert len(questions) > 0
-    assert len(questions) <= 150
+    assert len({q.id for q in questions}) == len(questions)
 
     for question in questions:
         assert len(question.options) == 4
