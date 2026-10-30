@@ -164,7 +164,7 @@ Rule-based grading is used because it is cheaper, faster, and more reliable for 
 
 The MVP contains approximately:
 
-- 96 Math MCQs
+- 98 Math MCQs
 - 12 diagnostic topics
 - multiple seed questions per topic
 
@@ -360,7 +360,7 @@ http://127.0.0.1:8000/
 
 ## Current Results
 
-- 96+ Math MCQs
+- 98 Math MCQs
 - 12-question diagnostic
 - 12 Math topic areas
 - Semantic retrieval using FAISS
@@ -502,7 +502,7 @@ Practice retrieval ranks the bank but selects seeds only from the learner's exac
 current topic. Diagnostic question IDs and saved practice seed IDs are treated as
 seen: unseen seeds come first. After all seeds in that topic have been seen, the
 least recently used one is selected, rather than repeating the top search result
-forever. The current bank has 96 questions across 12 topics, eight per topic.
+forever. The current bank has 98 questions across 12 topics: nine each in limits and quadratic equations, and eight in each other topic.
 
 Each generated or fallback practice question records its `seed_question_id` on
 the server. Saved attempts retain that provenance, so selection continues to
@@ -633,15 +633,16 @@ sessions without source metadata retain their diagnostic label.
 
 ## Expanding the question bank
 
-The source bank is `app/data/questions.json`. It currently contains 96 questions,
-eight per topic. The existing labels are 11 easy, 85 medium, and zero hard; these
+The source bank is `app/data/questions.json`. It currently contains 98 questions
+across 12 topics. The existing labels are 12 easy, 86 medium, and zero hard; these
 are author-provided labels, not calibrated difficulty estimates. Start by filling
 skill gaps and adding reviewed questions at varied difficulty within the existing
 12 topics. Grow in batches of 5–10 so every answer and explanation can be checked.
 
 ### Prepare a reviewed JSON batch
 
-Copy `examples/question_batch.json` to your own batch file. Each record needs:
+Copy `examples/question_batch.json` to `my_questions.json` and replace the sample
+records with your own reviewed questions. Each record needs:
 
 | Field | Format |
 | --- | --- |
@@ -659,8 +660,8 @@ Use original questions or material you have permission to include. Solve each
 question independently, check that exactly one option is correct, and review the
 distractors and explanation before importing. AI-generated drafts need the same
 review; schema checks do not validate mathematics or difficulty. The two supplied
-examples are original examples for the import format, not automatically added to
-the live bank.
+examples have been reviewed and included in the bank. Use their structure for
+new questions; replace their IDs and content rather than importing them again.
 
 ### Inspect, preview, then import
 
@@ -669,8 +670,8 @@ Run from the repository with its virtual environment activated:
 ```bash
 python -m tools.question_bank validate
 python -m tools.question_bank coverage
-python -m tools.question_bank import --input examples/question_batch.json
-python -m tools.question_bank import --input examples/question_batch.json --write
+python -m tools.question_bank import --input my_questions.json
+python -m tools.question_bank import --input my_questions.json --write
 ```
 
 Import defaults to a dry run. `--write` validates the combined bank, rejects

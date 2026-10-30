@@ -71,6 +71,7 @@ def test_append_preserves_order_exact_backup_and_permissions(tmp_path):
     assert [q.id for q in merged[:16]] == [q['id'] for q in original]
     assert merged[-1].id == 'new_001'
     assert Path(result['backup']).read_bytes() == before
+    assert bank.read_bytes().startswith(before[:before.rfind(b']')].rstrip())
     assert bank.stat().st_mode & 0o777 == 0o644
     assert not list(tmp_path.glob('.bank-*.tmp'))
 

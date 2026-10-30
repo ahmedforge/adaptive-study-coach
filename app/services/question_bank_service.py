@@ -87,8 +87,10 @@ def import_batch(bank_path, batch_path, *, write=False):
         with tempfile.NamedTemporaryFile(mode='w', encoding='utf-8', dir=bank_path.parent,
                                          prefix='.bank-', suffix='.tmp', delete=False) as stream:
             staged = Path(stream.name)
-            json.dump([q.model_dump() for q in merged], stream, ensure_ascii=False, indent=2)
-            stream.write('\n')
+            text = original.decode('utf-8')
+            closing = text.rfind(']')
+            additions = json.dumps([q.model_dump() for q in incoming], ensure_ascii=False, indent=2)[1:-1].strip('\n')
+            stream.write(text[:closing].rstrip() + ',\n' + additions + '\n]' + text[closing + 1:])
             stream.flush()
             os.fsync(stream.fileno())
         os.chmod(staged, stat.S_IMODE(bank_path.stat().st_mode))
