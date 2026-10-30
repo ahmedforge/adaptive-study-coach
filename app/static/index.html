@@ -180,30 +180,33 @@
             return;
         }
 
-        const optionsHtml = question.options.map((option) => `
-            <label>
-                <input type="radio" name="practice_answer" value="${option}">
-                ${option}
-            </label><br>
-        `).join("");
+        practiceBox.replaceChildren();
+        const heading = document.createElement("h2");
+        heading.textContent = "Targeted Practice";
+        const source = document.createElement("p");
+        source.textContent = question.generation_source === "seed_fallback"
+            ? "Question bank practice - AI generation unavailable or rejected."
+            : "AI-generated practice";
+        const prompt = document.createElement("p");
+        prompt.textContent = question.question;
+        practiceBox.append(heading, source, prompt);
 
-        practiceBox.innerHTML = `
-            <h2>Targeted Practice</h2>
-            <p>${question.question}</p>
-
-            ${optionsHtml}
-
-            <br>
-            <button id="submit-practice">Submit Practice Answer</button>
-
-            <p id="practice-feedback"></p>
-        `;
-
-        document
-            .getElementById("submit-practice")
-            .addEventListener("click", () => {
-                submitPracticeAnswer(question);
-            });
+        for (const option of question.options) {
+            const label = document.createElement("label");
+            const input = document.createElement("input");
+            input.type = "radio";
+            input.name = "practice_answer";
+            input.value = option;
+            label.append(input, document.createTextNode(` ${option}`));
+            practiceBox.append(label, document.createElement("br"));
+        }
+        const submit = document.createElement("button");
+        submit.id = "submit-practice";
+        submit.textContent = "Submit Practice Answer";
+        submit.addEventListener("click", () => submitPracticeAnswer(question));
+        const feedback = document.createElement("p");
+        feedback.id = "practice-feedback";
+        practiceBox.append(document.createElement("br"), submit, feedback);
     }
 
 

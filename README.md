@@ -325,10 +325,10 @@ http://127.0.0.1:8000/docs
 python -m pytest -q
 ```
 
-Current result:
+Local result (October 30, 2026; no live Gemini calls):
 
 ```text
-14 passed
+46 passed
 ```
 
 ---
@@ -364,7 +364,7 @@ http://127.0.0.1:8000/
 - Gemini-generated practice variants
 - Adaptive state-machine loop
 - MLflow retrieval tracking
-- 14 / 14 automated tests passing
+- 46 automated tests passing
 - Dockerized application
 
 ---
@@ -433,3 +433,19 @@ Adapt the learning path
 
 Ahmed  
 AI Bootcamp Capstone Project
+## Validated generation and fallback
+
+Practice variants require a non-empty question and explanation, exactly four
+distinct non-empty string options, and an answer key matching an option. Fields
+are trimmed, lengths are bounded, unexpected fields are rejected, and a copied
+seed prompt is rejected. One outer JSON code fence is accepted.
+
+If the API key is missing, the provider fails, or its response is invalid, practice
+uses the retrieved seed question and its existing answer/explanation. The response
+marks `generation_source` as `generated` or `seed_fallback`; the practice screen
+shows which is being used. The provider request has a 20-second timeout and SDK
+retries are disabled. Generated text is rendered as text rather than HTML.
+
+These checks validate structure, not mathematical correctness, semantic option
+equivalence, topic alignment, or difficulty. The question bank is not claimed to
+be independently audited. No live provider accuracy result is implied by tests.
