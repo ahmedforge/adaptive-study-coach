@@ -281,3 +281,18 @@ def test_all_correct_diagnostic_has_review_and_no_practice(client):
     assert data['diagnostic_summary']['incorrect'] == 0
     assert data['diagnostic_summary']['unanswered'] == 0
     assert data['practice_question'] is None
+
+
+def test_embedding_outage_keeps_saved_answer_and_question_for_retry(client, monkeypatch):
+    from app.services.retrieval_service import RetrievalUnavailable
+    data, headers = start(client)
+    def fail(*args, **kwargs): raise RetrievalUnavailable('private-model-details')
+    monkeypatch.setattr(sessions, 'get_practice_question', fail)
+    response = client.post('/sessions/current/answers', headers=headers, json={
+        'question_id': data['practice_question']['id'], 'selected_answer': '5'})
+    assert response.status_code == 503
+    assert 'private-model-details' not in response.text
+    saved = client.get('/sessions/current', headers=headers).json()
+    assert saved['practice_question'] == data['practice_question']
+    assert saved['history'] == []
+    assert saved['state'] == data['state']

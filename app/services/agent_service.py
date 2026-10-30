@@ -1,7 +1,7 @@
 from collections import Counter
 
 from app.models.agent_state import AgentState
-from app.services.retrieval_service import QuestionRetriever
+from app.services.retrieval_service import retriever
 from app.services.variant_generation_service import generate_variant
 
 
@@ -61,7 +61,6 @@ def update_after_practice(
 
     return state
 
-retriever = QuestionRetriever()
 
 
 def get_practice_question(state: AgentState, *, recent_question_ids: list[str] | None = None):

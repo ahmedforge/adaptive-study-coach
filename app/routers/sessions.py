@@ -13,6 +13,7 @@ from app.models.diagnostic import DiagnosticSubmission
 from app.repositories.progress_repository import ProgressStore
 from app.repositories.question_repository import load_questions
 from app.services.agent_service import get_practice_question, identify_weak_topics, update_after_practice
+from app.services.retrieval_service import RetrievalUnavailable
 from app.services.diagnostic_service import evaluate_diagnostic, summarize_diagnostic
 
 router = APIRouter(prefix='/sessions', tags=['saved progress'])
@@ -45,7 +46,10 @@ def read_session(store, token):
 def question_record(state, history=None):
     recent = [attempt['seed_question_id'] for attempt in (history or [])
               if attempt.get('seed_question_id')]
-    question = get_practice_question(state, recent_question_ids=recent)
+    try:
+        question = get_practice_question(state, recent_question_ids=recent)
+    except RetrievalUnavailable as exc:
+        raise HTTPException(503, 'Practice is temporarily unavailable. Your previous progress is unchanged. Please retry.') from exc
     if state.status != 'complete' and question is None:
         raise HTTPException(503, 'Practice is unavailable. Your previous progress is unchanged.')
     return ({**question.model_dump(), 'id': uuid4().hex} if question else None)

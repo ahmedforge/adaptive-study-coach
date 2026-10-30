@@ -734,3 +734,32 @@ The workflow uses the official GitHub [Python setup](https://github.com/actions/
 and [artifact](https://github.com/actions/upload-artifact) actions. Dependencies
 remain version-ranged/unpinned as in the runtime requirements; this checks current
 compatibility rather than providing a fully locked build.
+
+## Lazy retrieval startup and recovery
+
+Application startup loads and validates the JSON bank but does not import or
+initialize SentenceTransformer or build an embedding index. Health checks, the
+browser pages, diagnostics, and bank-based mock exams can run without a cached
+embedding model or a model download. The Python runtime dependencies still need
+to be installed.
+
+The first retrieval/practice request loads `all-MiniLM-L6-v2` (downloading it if
+not cached) and builds one shared FAISS index per server process. Cold practice
+requests may therefore take longer. Locks prevent simultaneous requests within a
+process from loading multiple model copies or publishing partial indexes. Each
+worker process has its own model/index; this is not a cross-worker cache.
+
+If loading or querying fails, search and practice endpoints return a retryable
+503 response without exposing internal error details. An unsuccessful index or
+model load remains retryable. Saved practice answers are committed only when the
+next question is prepared successfully, so a retrieval outage preserves the
+previous saved question, history, and streak; retry the answer after recovery.
+A previously saved question can still be resumed for review during an outage.
+Targeted revision from an exam needs retrieval when its first practice question
+is created; the exam/report itself remains available.
+
+Restart the server after importing new bank questions: the in-process bank and
+index are snapshots. Local tests include a clean-process smoke check with an
+empty model cache and offline mode, concurrent first requests, recovery after a
+failed load, and saved-progress preservation. The real semantic retrieval test
+still exercises the actual embedding model separately.
