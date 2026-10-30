@@ -540,3 +540,15 @@ question is already prepared and saved by the server; continuing reveals it
 without submitting another answer or changing progress. Keyboard focus moves to
 the feedback after submission and to the question when continuing. Final answers
 still show feedback when the practice cycle is complete.
+
+
+### Practice history and mistake review
+
+Expand **Practice history** to review all saved practice answers, newest first.
+Filter by topic or select **Show incorrect answers only** to focus on mistakes.
+Expand an answer to see the original question, your response, the correct answer,
+and its explanation. Results appear ten at a time; **Show more answers** reveals
+older matches. Filtering and reviewing do not submit answers or change progress.
+The history belongs to the current saved session and remains available on resume.
+Filters reset when the session view is rendered again. History is still loaded
+with the session response; this is browser pagination, not server pagination.

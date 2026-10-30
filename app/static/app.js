@@ -20,7 +20,7 @@ function element(tag, text) {
     return node;
 }
 function busy(value) {
-    document.querySelectorAll('button, input').forEach(node => { node.disabled = value; });
+    document.querySelectorAll('button, input, select').forEach(node => { node.disabled = value; });
 }
 function showDiagnostic(value) {
     form.hidden = !value;
@@ -75,6 +75,64 @@ function renderDiagnosticSummary(summary) {
     details.append(table);
     reportBox.append(details);
 }
+function renderPracticeHistory(history) {
+    const details = document.createElement('details');
+    details.append(element('summary', `Practice history (${history.length} answers)`));
+    details.append(element('p', 'Review saved answers and explanations, newest first.'));
+    const topicLabelNode = element('label', 'Filter by topic ');
+    const topicFilter = document.createElement('select');
+    topicFilter.setAttribute('aria-label', 'Filter history by topic');
+    const allTopics = element('option', 'All topics');
+    allTopics.value = '';
+    topicFilter.append(allTopics);
+    for (const topic of [...new Set(history.map(attempt => attempt.topic))]) {
+        const option = element('option', topicLabel(topic));
+        option.value = topic;
+        topicFilter.append(option);
+    }
+    topicLabelNode.append(topicFilter);
+    const mistakesLabel = document.createElement('label');
+    const mistakesOnly = document.createElement('input');
+    mistakesOnly.type = 'checkbox';
+    mistakesLabel.append(mistakesOnly, document.createTextNode(' Show incorrect answers only'));
+    const count = element('p', '');
+    count.setAttribute('role', 'status');
+    const list = document.createElement('div');
+    const more = element('button', 'Show more answers');
+    more.type = 'button';
+    let limit = 10;
+    function updateHistory() {
+        const matches = history.map((attempt, index) => ({attempt, number: index + 1}))
+            .reverse().filter(({attempt}) => (!topicFilter.value || attempt.topic === topicFilter.value)
+                && (!mistakesOnly.checked || !attempt.is_correct));
+        list.replaceChildren();
+        count.textContent = matches.length
+            ? `Showing ${Math.min(limit, matches.length)} of ${matches.length} matching answers.`
+            : 'No saved answers match these filters.';
+        for (const {attempt, number} of matches.slice(0, limit)) {
+            const entry = document.createElement('details');
+            entry.className = 'history-entry';
+            entry.append(element('summary', `Answer ${number}: ${topicLabel(attempt.topic)} — ${attempt.is_correct ? 'Correct' : 'Incorrect'}`));
+            entry.append(element('p', attempt.question));
+            entry.append(element('p', `Your answer: ${attempt.selected_answer}`));
+            entry.append(element('p', `Correct answer: ${attempt.correct_answer}`));
+            entry.append(element('p', attempt.explanation));
+            list.append(entry);
+        }
+        more.hidden = matches.length <= limit;
+    }
+    topicFilter.addEventListener('change', () => { limit = 10; updateHistory(); });
+    mistakesOnly.addEventListener('change', () => { limit = 10; updateHistory(); });
+    more.addEventListener('click', () => {
+        const firstNew = limit;
+        limit += 10;
+        updateHistory();
+        list.children[firstNew]?.querySelector('summary').focus();
+    });
+    details.append(topicLabelNode, mistakesLabel, count, list, more);
+    updateHistory();
+    reportBox.append(details);
+}
 function renderSession(data, reviewAnswer = true) {
     activeQuestion = null;
     showDiagnostic(false);
@@ -99,14 +157,7 @@ function renderSession(data, reviewAnswer = true) {
         reportBox.append(element('p', latest.question));
         reportBox.append(element('p', `${latest.is_correct ? 'Correct' : 'Incorrect'}. Your answer: ${latest.selected_answer}. Correct answer: ${latest.correct_answer}.`));
         reportBox.append(element('p', latest.explanation));
-        const details = document.createElement('details');
-        details.append(element('summary', 'Recent practice history'));
-        const list = document.createElement('ol');
-        for (const attempt of data.history.slice(-5)) {
-            list.append(element('li', `${attempt.topic}: ${attempt.question} - ${attempt.is_correct ? 'correct' : 'incorrect'}`));
-        }
-        details.append(list);
-        reportBox.append(details);
+        renderPracticeHistory(data.history);
     }
     practiceBox.replaceChildren();
     if (!data.practice_question) {
