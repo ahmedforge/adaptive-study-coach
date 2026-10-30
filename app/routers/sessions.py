@@ -4,13 +4,15 @@ import sqlite3
 from datetime import datetime, timezone
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.agent_state import AgentState
 from app.models.diagnostic import DiagnosticSubmission
 from app.repositories.progress_repository import ProgressStore
+from app.repositories.account_repository import AccountRepository
+from app.services.account_service import COOKIE, check_mutation
 from app.repositories.question_repository import load_questions
 from app.services.agent_service import get_practice_question, identify_weak_topics, update_after_practice
 from app.services.retrieval_service import RetrievalUnavailable
@@ -20,9 +22,17 @@ router = APIRouter(prefix='/sessions', tags=['saved progress'])
 bearer = HTTPBearer()
 
 
-def get_store():
+def get_store(request: Request):
     try:
-        return ProgressStore(os.getenv('STUDY_COACH_DB', 'progress_data/progress.sqlite3'))
+        store = ProgressStore(os.getenv('STUDY_COACH_DB', 'progress_data/progress.sqlite3'))
+        login_cookie = request.cookies.get(COOKIE)
+        user = AccountRepository(store).authenticate(login_cookie)
+        if login_cookie and user is None and request.method in ('POST', 'PUT', 'PATCH', 'DELETE') and request.url.path not in ('/account/login', '/account/register', '/account/logout'):
+            raise HTTPException(401, 'Your sign-in expired. Sign in again before saving changes.')
+        store.user_id = user['id'] if user else None
+        if user and request.method in ('POST', 'PUT', 'PATCH', 'DELETE'):
+            check_mutation(request)
+        return store
     except (OSError, sqlite3.Error) as exc:
         raise HTTPException(503, 'Saved progress is unavailable. Please try again.') from exc
 
@@ -33,13 +43,13 @@ def now():
 
 def read_session(store, token):
     if len(token) > 100:
-        raise HTTPException(401, 'Saved session not found. Start a new diagnostic.')
+        raise HTTPException(401, 'Saved session unavailable. Sign in if it belongs to your account, or open your dashboard.')
     try:
         record = store.load(token)
     except sqlite3.Error as exc:
         raise HTTPException(503, 'Saved progress is unavailable. Please try again.') from exc
     if record is None or record[1].get('kind') == 'exam':
-        raise HTTPException(401, 'Saved session not found. Start a new diagnostic.')
+        raise HTTPException(401, 'Saved session unavailable. Sign in if it belongs to your account, or open your dashboard.')
     return record
 
 

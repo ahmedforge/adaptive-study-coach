@@ -5,8 +5,8 @@
 <link rel="stylesheet" href="/static/exam.css"><link rel="stylesheet" href="/static/dashboard.css">
 <script src="/static/session-library.js" defer></script><script src="/static/dashboard.js" defer></script>
 </head><body>
-<header><a href="/">← Study coach</a><h1>Your learning progress</h1>
-<p>A view of practice and exams saved in this browser on this server.</p>
+<header><a href="/">← Study coach</a> · <a href="/account">Your account</a><h1>Your learning progress</h1>
+<p id="progress-context">Practice and exams saved in this browser, or in your signed-in account.</p>
 <div class="toolbar"><a href="/">Practice</a><a href="/exam">Mock exams</a><button id="refresh-progress" type="button">Refresh progress</button></div></header>
 <p id="progress-status" role="status" aria-live="polite"></p>
 <div id="progress-overview" class="metrics"></div>
@@ -15,7 +15,8 @@
 <section class="card"><h2>Saved sessions</h2>
 <label>Show <select id="session-filter"><option value="all">All sessions</option><option value="practice">Practice only</option><option value="exam">Exams only</option></select></label>
 <div id="saved-sessions"></div><button id="more-sessions" type="button" hidden>Show more sessions</button>
+<div class="toolbar"><button id="newer-account-sessions" type="button" hidden>Newer account sessions</button><button id="older-account-sessions" type="button" hidden>Older account sessions</button></div>
 </section>
-<footer><p>This browser keeps up to 50 session links. Clearing its storage loses access to that history. Older sessions are discoverable only if their token is still saved here. This is a local progress view, not an account or cross-device sync.</p>
+<footer><p id="progress-storage-help">This browser keeps up to 50 session links. Clearing its storage loses access to that history. Older sessions are discoverable only if their token is still saved here. This is a local progress view, not an account or cross-device sync.</p>
 <p>Practice accuracy and exam scores are shown separately. Different question samples make scores approximate evidence for planning, not a measurement of mastery.</p></footer>
 </body></html>

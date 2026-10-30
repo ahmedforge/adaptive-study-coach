@@ -1,0 +1,4 @@
+.account-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 310px), 1fr)); gap: 20px; }
+.account-grid .card { margin: 0; }
+form input { display: block; box-sizing: border-box; width: 100%; padding: 12px; font: inherit; border: 1px solid #8799ae; border-radius: 8px; }
+form button { margin-top: 20px; }

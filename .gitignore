@@ -16,3 +16,5 @@ bank_backups/
 
 # Local/CI test reports.
 reports/
+# Pre-account SQLite migration snapshots (may contain learner progress).
+account_migration_backups/

@@ -33,7 +33,7 @@ async function request(path, method = 'GET', body) {
     let response;
     try {
         response = await fetch(path, {method, signal: controller.signal,
-            headers: {'Content-Type': 'application/json', ...(token ? {Authorization: `Bearer ${token}`} : {})},
+            headers: {'Content-Type': 'application/json', 'X-Study-Coach': '1', ...(token ? {Authorization: `Bearer ${token}`} : {})},
             ...(body === undefined ? {} : {body: JSON.stringify(body)})});
     } catch {
         throw new Error('Connection interrupted. Resume to check which answers were saved.');

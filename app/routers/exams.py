@@ -193,11 +193,14 @@ def start_revision(credentials: HTTPAuthorizationCredentials = Depends(bearer), 
     # resetting revision progress. Possession of the exam token authorizes access.
     revision_token = hmac.new(token.encode(), b'exam-revision:v1', hashlib.sha256).hexdigest()
     try:
-        record = store.load(revision_token)
+        record = store.load_revision(token, revision_token)
         if record is None:
-            session = build_session(results, assessment_source='mock_exam')
-            store.create_once(revision_token, session)
+            legacy = store.load(revision_token)
+            session = legacy[1] if legacy else build_session(results, assessment_source='mock_exam')
+            store.create_revision(token, revision_token, session)
             record = store.load(revision_token)
+    except PermissionError as exc:
+        raise HTTPException(403, 'This revision is not accessible to the signed-in account.') from exc
     except sqlite3.Error as exc:
         raise HTTPException(503, 'Could not prepare revision. Your exam report is unchanged. Please retry.') from exc
     if record is None:

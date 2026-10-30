@@ -7,3 +7,4 @@ faiss-cpu
 google-genai
 python-dotenv
 mlflow
+argon2-cffi>=23.1,<26

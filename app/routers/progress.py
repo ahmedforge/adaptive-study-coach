@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from app.models.agent_state import AgentState
 from app.routers.exams import exam_diagnostic_results
@@ -17,7 +17,14 @@ router = APIRouter(prefix='/progress', tags=['progress dashboard'])
 class SessionReference(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True)
     kind: Literal['practice', 'exam']
-    token: str = Field(min_length=1, max_length=100)
+    token: str | None = Field(default=None, min_length=1, max_length=100)
+    id: str | None = Field(default=None, pattern=r'^[a-f0-9]{64}$')
+
+    @model_validator(mode='after')
+    def one_reference(self):
+        if (self.token is None) == (self.id is None):
+            raise ValueError('Provide exactly one token or account session ID.')
+        return self
 
 
 class SummaryRequest(BaseModel):
@@ -33,12 +40,12 @@ def progress_summary(request: SummaryRequest, store=Depends(get_store)):
     totals = {'practice_sessions': 0, 'practice_answers': 0, 'practice_correct': 0,
               'exams': 0, 'completed_exams': 0}
     for index, reference in enumerate(request.sessions):
-        identity = (reference.kind, reference.token)
+        identity = (reference.kind, reference.token, reference.id)
         if identity in seen:
             continue
         seen.add(identity)
         try:
-            record = store.load(reference.token)
+            record = store.load_owned(reference.id) if reference.id else store.load(reference.token)
         except sqlite3.Error as exc:
             raise HTTPException(503, 'Progress is unavailable. Your saved sessions are unchanged. Please retry.') from exc
         if record is None or (record[1].get('kind') == 'exam') != (reference.kind == 'exam'):

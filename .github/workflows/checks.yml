@@ -74,6 +74,7 @@ jobs:
           node --check app/static/exam.js
           node --check app/static/session-library.js
           node --check app/static/dashboard.js
+          node --check app/static/account.js
       - name: Test browser session library
         run: node --test tests/session-library.test.cjs
       - name: Run complete test suite

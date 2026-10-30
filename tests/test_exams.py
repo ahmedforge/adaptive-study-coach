@@ -328,14 +328,14 @@ def test_expired_exam_can_start_revision(exam_client, monkeypatch):
 
 def test_revision_creation_failure_leaves_report_and_can_retry(revision_ready, monkeypatch):
     (client, store, _), _, headers, report, _ = revision_ready
-    real_create = store.create_once
+    real_create = store.create_revision
     def fail(*args): raise sqlite3.OperationalError('private-db-details')
-    monkeypatch.setattr(store, 'create_once', fail)
+    monkeypatch.setattr(store, 'create_revision', fail)
     response = client.post('/exams/current/revision', headers=headers)
     assert response.status_code == 503
     assert 'private-db-details' not in response.text
     assert client.get('/exams/current', headers=headers).json() == report
-    monkeypatch.setattr(store, 'create_once', real_create)
+    monkeypatch.setattr(store, 'create_revision', real_create)
     assert client.post('/exams/current/revision', headers=headers).status_code == 200
 
 

@@ -1,0 +1,37 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Your account · Adaptive AI Study Coach</title>
+<link rel="stylesheet" href="/static/exam.css"><link rel="stylesheet" href="/static/account.css">
+<script src="/static/session-library.js" defer></script><script src="/static/account.js" defer></script>
+</head><body>
+<header><a href="/">← Study coach</a> · <a href="/dashboard">Progress dashboard</a><h1>Your study account</h1>
+<p>Keep saved practice and exams on this server and open them from another browser or device.</p></header>
+<p id="account-status" role="status" aria-live="polite"></p>
+<section id="guest-account" class="account-grid" hidden>
+<form id="login-form" class="card"><h2>Sign in</h2>
+<label for="login-username">Username</label><input id="login-username" autocomplete="username" required minlength="3" maxlength="32">
+<label for="login-password">Password</label><input id="login-password" type="password" autocomplete="current-password" required minlength="12" maxlength="128">
+<button type="submit">Sign in</button></form>
+<form id="register-form" class="card"><h2>Create an account</h2>
+<p>Usernames use 3–32 lowercase letters, digits, or underscores and start with a letter. Choose a password of 12–128 characters.</p>
+<label for="register-username">New username</label><input id="register-username" autocomplete="username" required pattern="[a-zA-Z][a-zA-Z0-9_]{2,31}" minlength="3" maxlength="32">
+<label for="register-password">New password</label><input id="register-password" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+<label for="register-confirm">Confirm password</label><input id="register-confirm" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+<p>No email is required. Password recovery is not available, so keep your credentials somewhere safe.</p>
+<button type="submit">Create account</button></form></section>
+<section id="signed-in-account" hidden>
+<div class="card"><h2 id="signed-in-heading"></h2><p>New practice and exams are now saved to your account. Sign in to this same server on another device and open the dashboard to continue.</p>
+<p><a href="/dashboard">Open your account progress</a></p>
+<div class="toolbar"><button id="logout" type="button">Sign out of this browser</button><button id="logout-all" type="button">Sign out of all browsers</button></div></div>
+<div class="card"><h2>Bring existing browser progress into your account</h2>
+<p>Import the session links saved in this browser. Once imported, they require your account to open. Progress owned by another account cannot be imported.</p>
+<button id="import-progress" type="button">Import this browser’s progress</button></div>
+<form id="password-form" class="card"><h2>Change password</h2>
+<label for="current-password">Current password</label><input id="current-password" type="password" autocomplete="current-password" required maxlength="128">
+<label for="new-password">Replacement password</label><input id="new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+<label for="confirm-new-password">Confirm replacement password</label><input id="confirm-new-password" type="password" autocomplete="new-password" required minlength="12" maxlength="128">
+<p>Changing your password signs out other browsers. This browser remains signed in.</p>
+<button type="submit">Update password</button></form></section>
+<footer><p>Accounts belong to this server. Retain its progress database when redeploying. Anonymous practice is still available without signing in.</p></footer>
+</body></html>

@@ -38,7 +38,7 @@ async function request(path, options = {}) {
     return data;
 }
 function headers() {
-    return { 'Content-Type': 'application/json', Authorization: `Bearer ${sessionToken}` };
+    return { 'Content-Type': 'application/json', 'X-Study-Coach': '1', Authorization: `Bearer ${sessionToken}` };
 }
 function savedStatus() {
     statusBox.textContent = browserStorageWorks
@@ -221,7 +221,7 @@ form.addEventListener('submit', async event => {
     try {
         const answers = diagnosticQuestions.map(q => ({ question_id: q.id, selected_answer: fields.get(q.id) }));
         const data = await request('/sessions', {
-            method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ answers }),
+            method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Study-Coach': '1' }, body: JSON.stringify({ answers }),
         });
         sessionToken = data.session_token;
         try { localStorage.setItem(STORAGE_KEY, sessionToken); }

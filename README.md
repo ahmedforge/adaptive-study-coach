@@ -4,6 +4,13 @@ Adaptive AI Study Coach is a Math-focused exam preparation system that identifie
 
 The MVP is designed for FAST-NUCES entry / transfer test preparation and focuses on adaptive practice rather than static question sets.
 
+
+Current features include validated question-bank imports, diagnostics, saved
+adaptive practice, timed mock exams, exam-to-revision plans, a progress dashboard,
+and optional accounts for resuming the same progress across devices. Anonymous
+practice remains available. See **Accounts and cross-device progress** below for
+setup, ownership, and recovery limits.
+
 ---
 
 ## Problem
@@ -466,7 +473,7 @@ answer keys are excluded from the session API response until an answer is saved.
   with `STUDY_COACH_DB=/absolute/path/progress.sqlite3`.
 - The browser keeps one opaque resume token in localStorage. Only a SHA-256 hash
   of that token is stored in the database. Possessing the token grants access to
-  that session; this is a local demo, not an authenticated multi-user service.
+  anonymous session. Account-owned sessions additionally require the signed-in owner.
 - Keep the database file across restarts. Container deployments need a mounted
   persistent directory and the matching `STUDY_COACH_DB` path; otherwise container
   replacement loses saved progress. No deployment or Docker changes are included.
@@ -474,8 +481,9 @@ answer keys are excluded from the session API response until an answer is saved.
   answer after a lost response returns the saved result without counting it twice.
 - If preparing the next question or saving fails, the previous saved state remains
   available. Generation takes place outside the short database update.
-- Progress is tied to this server database and browser token. There is no account
-  recovery, cross-device sync, expiry, or automatic retention policy. Clearing
+- Anonymous progress is tied to this server database and browser token. Accounts
+  can resume owned progress across devices; password recovery and an automatic
+  retention policy are not implemented. Clearing
   browser storage loses the resume token. If storage is blocked, the interface
   explains that access lasts only while the tab retains its token.
 - New saved sessions require two consecutive correct answers per topic. Set
@@ -602,8 +610,9 @@ Exams share `STUDY_COACH_DB` and its persistence requirements with practice. The
 use the curated bank, without AI question generation. Questions may recur across
 separate exams. Scores describe a small question sample, not standardized exam
 readiness or mastery. As with practice, tokens grant access to local demo data;
-there are no accounts, cross-device recovery, retention policy, or public-service
-abuse controls. Do not publish the demo as an authenticated exam platform.
+account-owned exams additionally require the signed-in owner. Account sign-in
+is rate limited, but password recovery, automatic data retention, and broad
+public-service abuse controls are not implemented.
 
 
 ### Turn an exam into targeted revision
@@ -787,8 +796,8 @@ tokens are migrated automatically when loading a page. Earlier overwritten token
 from before this feature cannot be recovered. Clearing browser storage loses these
 links; changing servers/databases can make them unavailable. Database records are
 not deleted when a link ages out of the browser library. Storage access must be
-enabled for retention and resume navigation. There are no user accounts or
-cross-device synchronization.
+enabled for anonymous retention and resume navigation. Signed-in accounts use
+a server-side session library and can resume progress across devices.
 
 `POST /progress/summary` accepts `sessions`, an array of up to 50 objects with
 `kind` (`practice` or `exam`) and `token`. It looks up only those bearer capabilities
@@ -801,3 +810,111 @@ GitHub checks cover both dashboard scripts and run the browser-library unit test
 with `node --test tests/session-library.test.cjs`. Python tests cover access
 isolation, aggregate counts, legacy records, read-only expiry handling, and storage
 failure responses. Browser testing covers the complete dashboard/resume flow.
+
+## Accounts and cross-device progress
+
+Open `/account` to create a username/password account or sign in. Accounts use
+usernames (3–32 lowercase letters/digits/underscores, starting with a letter) and
+passwords of 12–128 characters. No email is collected. **There is no password-reset
+or username-recovery flow**: choose and retain credentials before using an account
+for progress you want to keep.
+
+### Learner flow
+
+1. Create an account or sign in. New practice sessions, exams, and revision plans
+   are automatically associated with that account.
+2. To retain earlier anonymous sessions, use **Import this browser’s progress** on
+   the account page. This is explicit because a shared browser may hold another
+   person's anonymous links. Sessions already owned by another account cannot be
+   imported. Claiming an exam also claims its linked revision plan when available.
+3. On another device/browser, open this same server, sign in, and open the
+   dashboard. Its account library provides **Open saved practice**, **Continue
+   exam**, and **Open exam report** without needing old browser tokens.
+4. Account history is paginated in groups of up to 50 sessions, with older/newer
+   controls. Dashboard totals and topic aggregates describe the current page.
+5. Sign out of this browser or all browsers from the account page. Password changes
+   require the current password, revoke other sessions, and keep this browser
+   signed in. A failed database transaction rolls back the credential change.
+
+Accounts live in `STUDY_COACH_DB` alongside progress. Retain this database when
+restarting/redeploying; signing in against a different database does not recover
+accounts from the original server. This is server-backed progress, not a separate
+cloud synchronization provider. If browser storage is blocked, the dashboard can
+still load account results, but the current page-to-page resume flow needs storage
+to hand off its resume token.
+
+### Ownership and token compatibility
+
+The original opaque practice/exam tokens still work for anonymous sessions. Once
+a session belongs to an account, possessing a token is insufficient: the owner
+must also have a valid login cookie. This includes previously issued anonymous
+links and account-issued aliases. Another account receives an unavailable/not-found
+response, including when a session ID is known.
+
+The account library lists stable session IDs, not bearer tokens. Opening an owned
+session issues a fresh hashed alias pointing to the same canonical database row.
+Two devices therefore share optimistic versions, answer history, and the same exam
+deadline. Stale edits are rejected rather than overwriting newer work. Exam-to-
+revision links are canonical too: reopening an exam through a different alias
+resumes the same revision plan. Existing HMAC-derived revision links are adopted
+without resetting progress.
+
+Schema changes are additive. Before upgrading a non-empty pre-account database,
+the app creates a SQLite snapshot in `account_migration_backups/` beside the DB,
+with file mode 0600. Backup directories are ignored by Git. Existing anonymous
+records are not assigned to an account until explicitly claimed. Use the updated
+server consistently after claiming sessions; older server versions do not enforce
+account ownership.
+
+### Authentication and deployment
+
+- Passwords are hashed with Argon2id (19 MiB memory, two iterations, one lane) and
+  per-password random salts via `argon2-cffi`; raw passwords are never persisted.
+- Login sessions use random tokens stored only as SHA-256 hashes. Cookies are
+  HttpOnly, host-only, SameSite=Lax, and expire after seven days. Sign-in rotates
+  the current browser's login token. Expired/revoked logins cannot silently save
+  new anonymous progress while their stale cookie remains present.
+- Cookies are Secure when requests use HTTPS. `STUDY_COACH_COOKIE_SECURE=true`
+  forces Secure cookies. Public account mutations require HTTPS; HTTP is accepted
+  only for loopback-host/loopback-peer development. Behind a reverse proxy,
+  configure HTTPS forwarding correctly and trust only your own proxy.
+- Browser mutations send `X-Study-Coach: 1`; signed-in mutations and all account
+  mutations require it, and reject mismatched Origin headers. The app does not
+  enable cross-origin credential sharing.
+- Login attempts are reserved atomically before password verification: at most
+  ten attempts per username/client in a 15-minute window, with an additional
+  100-attempt client cap. Registration and password changes have separate buckets.
+  These limits include successful attempts. The SQLite rate limiter is shared
+  across this deployment's processes, not a distributed service.
+- Invalid credential responses do not distinguish an unknown username from a wrong
+  password. Account validation responses omit input values. Authentication payloads
+  and account library responses are marked not to be cached where applicable.
+
+This implements core account and ownership behavior; it has no email verification,
+MFA, administrative recovery, or automated retention/deletion flow. A public
+release still needs deployment verification and operational monitoring. The
+password/session choices follow the [OWASP password-storage guidance](https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html),
+[session guidance](https://cheatsheetseries.owasp.org/cheatsheets/Session_Management_Cheat_Sheet.html),
+and the [Argon2 library API](https://argon2-cffi.readthedocs.io/en/stable/howto.html).
+
+### Account API
+
+- `POST /account/register`, `POST /account/login`: JSON `username`, `password`;
+  successful responses set the login cookie.
+- `GET /account/me`: current sign-in state; `GET /account/library?limit=50&offset=0`:
+  references to the signed-in owner's sessions.
+- `POST /account/open`: JSON `id`; returns a short response with a resume token
+  and session kind for an owned session.
+- `POST /account/claim`: JSON `sessions` containing up to 50 `kind`/`token` pairs.
+- `POST /account/password`: `current_password`, `new_password`.
+- `POST /account/logout`, `POST /account/logout-all`: revoke the current/all logins.
+
+Use same-origin requests, the cookie, and `X-Study-Coach: 1` for mutations. The
+existing practice/exam APIs keep their Bearer resume token contract; account-owned
+records additionally require the owner's cookie. `/progress/summary` accepts either
+`token` references or owned `id` references, never both on one reference. Anonymous
+summaries remain limited to supplied bearer capabilities.
+
+Local automated checks cover multi-device editing, cross-account access rejection,
+CSRF and HTTPS checks, rate limiting, expiry, login rotation, logout revocation,
+password-change rollback, legacy migration, and shared exam revision plans.

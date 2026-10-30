@@ -1,5 +1,5 @@
 const el = id => document.getElementById(id);
-let references = [], progress = null, limit = 10;
+let references = [], progress = null, limit = 10, accountOffset = 0, loadedUsername = null;
 function node(tag, text) { const result = document.createElement(tag); result.textContent = text; return result; }
 function label(topic) { return topic.replaceAll('_', ' '); }
 function metric(title, value) {
@@ -28,9 +28,20 @@ function renderSessions() {
         const open = node('button', isExam ? session.status === 'active' ? 'Continue exam' : 'Open exam report' : 'Open saved practice');
         open.type = 'button';
         const reference = references[session.index];
-        open.addEventListener('click', () => {
-            try { window.StudyLibrary.resume(reference); }
-            catch { el('progress-status').textContent = 'Browser storage is unavailable. Enable it to open this saved session.'; }
+        open.addEventListener('click', async () => {
+            try {
+                let resumeReference = reference;
+                if (reference.id) {
+                    open.disabled = true;
+                    const response = await fetch('/account/open', {method:'POST', headers:{'Content-Type':'application/json', 'X-Study-Coach':'1'}, body:JSON.stringify({id:reference.id}), signal:AbortSignal.timeout(15000)});
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Sign in again to open this session.');
+                    resumeReference = {kind:data.kind, token:data.session_token};
+                }
+                window.StudyLibrary.resume(resumeReference);
+            }
+            catch (error) { el('progress-status').textContent = error.message || 'Enable browser storage to open this session.'; }
+            finally { open.disabled = false; }
         });
         card.append(open); box.append(card);
     }
@@ -70,24 +81,51 @@ function renderProgress() {
 async function refresh() {
     el('refresh-progress').disabled = true; el('session-filter').disabled = true;
     el('more-sessions').disabled = true;
+    el('newer-account-sessions').disabled = true; el('older-account-sessions').disabled = true;
     el('progress-status').textContent = 'Loading saved progress…';
     try {
-        const requested = window.StudyLibrary.list();
+        const whoResponse = await fetch('/account/me', {signal: AbortSignal.timeout(15000)});
+        if (!whoResponse.ok) throw new Error('Could not check sign-in status. Please refresh.');
+        const user = await whoResponse.json();
+        const username = user.authenticated ? user.username : null;
+        if (username !== loadedUsername) {
+            el('progress-overview').replaceChildren(); el('saved-sessions').replaceChildren();
+            el('revisit').hidden = true; el('topic-progress').hidden = true;
+            el('more-sessions').hidden = true; progress = null; references = []; accountOffset = 0;
+        }
+        let requested, hasMore = false;
+        if (user.authenticated) {
+            const libraryResponse = await fetch(`/account/library?offset=${accountOffset}`, {signal: AbortSignal.timeout(15000)});
+            const library = await libraryResponse.json();
+            if (!libraryResponse.ok) throw new Error(library.detail || 'Account progress is unavailable.');
+            requested = library.sessions; hasMore = library.has_more;
+            el('progress-context').textContent = `Signed in as ${user.username}. Results below cover this page of account sessions.`;
+            el('progress-storage-help').textContent = 'Account progress is stored on this server and available after signing in on another device. Use the older/newer controls to browse your history. Totals and topic results apply to the current page of up to 50 sessions. Browser-only progress can be imported from Your account.';
+        } else {
+            accountOffset = 0; requested = window.StudyLibrary.list();
+            el('progress-context').textContent = 'Progress from session links saved in this browser. Sign in for account history across devices.';
+            el('progress-storage-help').textContent = 'Anonymous progress uses up to 50 session links retained in this browser. Clearing storage loses those links. Account-owned links require the owner to sign in; account history is stored on this server.';
+        }
         const response = await fetch('/progress/summary', {method: 'POST',
-            headers: {'Content-Type': 'application/json'}, body: JSON.stringify({sessions: requested}),
+            headers: {'Content-Type': 'application/json', 'X-Study-Coach':'1'}, body: JSON.stringify({sessions: requested}),
             signal: AbortSignal.timeout(15000)});
         const data = await response.json();
         if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Progress could not be loaded.');
-        references = requested; progress = data; renderProgress();
-        el('progress-status').textContent = !window.StudyLibrary.storageAvailable()
+        references = requested; progress = data; loadedUsername = username; renderProgress();
+        el('newer-account-sessions').hidden = !user.authenticated || accountOffset === 0;
+        el('older-account-sessions').hidden = !user.authenticated || !hasMore;
+        el('progress-status').textContent = !user.authenticated && !window.StudyLibrary.storageAvailable()
             ? 'Browser storage is blocked; saved session links are unavailable.'
-            : `${progress.sessions.length} saved sessions loaded.${data.unavailable.length ? ` ${data.unavailable.length} links are unavailable on this server.` : ''}`;
+            : `${progress.sessions.length} ${user.authenticated ? 'account' : 'saved'} sessions loaded.${data.unavailable.length ? ` ${data.unavailable.length} links are unavailable on this server.` : ''}`;
     } catch (error) { el('progress-status').textContent = error.name === 'TimeoutError' ? 'Loading timed out. Please refresh.' : error.message; }
     finally {
         el('refresh-progress').disabled = false; el('session-filter').disabled = false; el('more-sessions').disabled = false;
+        el('newer-account-sessions').disabled = false; el('older-account-sessions').disabled = false;
     }
 }
 el('refresh-progress').addEventListener('click', refresh);
+el('newer-account-sessions').addEventListener('click', () => { accountOffset = Math.max(0, accountOffset - 50); refresh(); });
+el('older-account-sessions').addEventListener('click', () => { accountOffset += 50; refresh(); });
 el('session-filter').addEventListener('change', () => { if (progress) { limit = 10; renderSessions(); } });
 el('more-sessions').addEventListener('click', () => {
     const firstNew = limit; limit += 10; renderSessions();
