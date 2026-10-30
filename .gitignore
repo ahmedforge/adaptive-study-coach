@@ -6,3 +6,7 @@ __pycache__/
 uploads/
 .pytest_cache/
 mlruns/
+# Local learner progress; never commit resume sessions.
+progress_data/
+*.sqlite3
+*.sqlite3-*

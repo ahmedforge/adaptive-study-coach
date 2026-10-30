@@ -48,6 +48,8 @@
         color: white;
     }
 
+    button:disabled { opacity: 0.55; cursor: wait; }
+
     button:hover {
         opacity: 0.85;
     }
@@ -62,7 +64,13 @@
     <h1>Adaptive AI Study Coach</h1>
     <p>FAST-NUCES Math Practice</p>
 
-    <h2>Diagnostic</h2>
+    <p id="save-status" role="status" aria-live="polite"></p>
+    <div id="resume-controls" hidden>
+        <button id="resume-session" type="button">Resume saved practice</button>
+        <button id="new-session" type="button">Start new diagnostic</button>
+    </div>
+    <h2 id="diagnostic-heading">Diagnostic</h2>
+    <p id="diagnostic-help">Your diagnostic and practice progress are saved after submission.</p>
 
     <form id="diagnostic-form">
     <div id="diagnostic-questions"></div>
@@ -74,201 +82,6 @@
     <div id="report"></div>
 <div id="practice"></div>
 
-<script>
-    const questionsBox = document.getElementById("diagnostic-questions");
-    let diagnosticQuestions = [];
-    const form = document.getElementById("diagnostic-form");
-    const reportBox = document.getElementById("report");
-    const practiceBox = document.getElementById("practice");
-
-    let agentState = null;
-    async function loadDiagnosticQuestions() {
-    const response = await fetch("/diagnostic/questions");
-    const data = await response.json();
-
-    diagnosticQuestions = data.questions;
-
-    questionsBox.innerHTML = diagnosticQuestions.map((question, index) => {
-        const optionsHtml = question.options.map((option) => `
-            <label>
-                <input
-                    type="radio"
-                    name="${question.id}"
-                    value="${option}"
-                >
-                ${option}
-            </label>
-        `).join("");
-
-        return `
-            <div>
-                <p><strong>${index + 1}. ${question.question}</strong></p>
-                ${optionsHtml}
-            </div>
-        `;
-    }).join("");
-}
-    loadDiagnosticQuestions();
-    form.addEventListener("submit", async (event) => {
-        event.preventDefault();
-
-        const questionIds = diagnosticQuestions.map(
-        (question) => question.id
-        );
-
-        const answers = questionIds.map((id) => {
-            const selected = document.querySelector(
-                `input[name="${id}"]:checked`
-            );
-
-            return {
-                question_id: id,
-                selected_answer: selected ? selected.value : null
-            };
-        });
-
-        const diagnosticResponse = await fetch("/diagnostic/submit", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({ answers })
-        });
-
-        const diagnosticData = await diagnosticResponse.json();
-
-        const agentResponse = await fetch("/agent/start", {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-                diagnostic_results: diagnosticData.results,
-                weak_topics: [],
-                current_topic: null,
-                attempts_on_topic: 0,
-                status: "diagnosing"
-            })
-        });
-
-        const agentData = await agentResponse.json();
-
-        agentState = agentData.state;
-
-        if (agentState.status === "complete") {
-            reportBox.innerHTML = `
-                <h2>Diagnostic Report</h2>
-                <p>No weak topics detected.</p>
-            `;
-            practiceBox.innerHTML = "";
-            return;
-        }
-
-        reportBox.innerHTML = `
-            <h2>Diagnostic Report</h2>
-            <p><strong>Weak topics:</strong> ${agentState.weak_topics.join(", ")}</p>
-            <p><strong>Current focus:</strong> ${agentState.current_topic}</p>
-        `;
-
-        showPracticeQuestion(agentData.practice_question);
-    });
-
-
-    function showPracticeQuestion(question) {
-        if (!question) {
-            practiceBox.innerHTML = "<p>No practice question available.</p>";
-            return;
-        }
-
-        practiceBox.replaceChildren();
-        const heading = document.createElement("h2");
-        heading.textContent = "Targeted Practice";
-        const source = document.createElement("p");
-        source.textContent = question.generation_source === "seed_fallback"
-            ? "Question bank practice - AI generation unavailable or rejected."
-            : "AI-generated practice";
-        const prompt = document.createElement("p");
-        prompt.textContent = question.question;
-        practiceBox.append(heading, source, prompt);
-
-        for (const option of question.options) {
-            const label = document.createElement("label");
-            const input = document.createElement("input");
-            input.type = "radio";
-            input.name = "practice_answer";
-            input.value = option;
-            label.append(input, document.createTextNode(` ${option}`));
-            practiceBox.append(label, document.createElement("br"));
-        }
-        const submit = document.createElement("button");
-        submit.id = "submit-practice";
-        submit.textContent = "Submit Practice Answer";
-        submit.addEventListener("click", () => submitPracticeAnswer(question));
-        const feedback = document.createElement("p");
-        feedback.id = "practice-feedback";
-        practiceBox.append(document.createElement("br"), submit, feedback);
-    }
-
-
-    async function submitPracticeAnswer(question) {
-        const selected = document.querySelector(
-            'input[name="practice_answer"]:checked'
-        );
-
-        if (!selected) {
-            document.getElementById("practice-feedback").textContent =
-                "Please select an answer.";
-            return;
-        }
-
-        const isCorrect = selected.value === question.correct_answer;
-
-        const response = await fetch(
-            `/agent/advance?is_correct=${isCorrect}`,
-            {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json"
-                },
-                body: JSON.stringify(agentState)
-            }
-        );
-
-        const data = await response.json();
-
-        agentState = data.state;
-
-        if (isCorrect) {
-            document.getElementById("practice-feedback").textContent =
-                "Correct!";
-        } else {
-            document.getElementById("practice-feedback").textContent =
-                `Incorrect. Correct answer: ${question.correct_answer}`;
-        }
-
-        setTimeout(() => {
-            if (agentState.status === "complete") {
-                reportBox.innerHTML = `
-                    <h2>Study Complete</h2>
-                    <p>You completed all detected weak topics.</p>
-                `;
-                practiceBox.innerHTML = "";
-                return;
-            }
-
-            reportBox.innerHTML = `
-                <h2>Progress</h2>
-                <p><strong>Remaining weak topics:</strong>
-                    ${agentState.weak_topics.join(", ")}
-                </p>
-                <p><strong>Current focus:</strong>
-                    ${agentState.current_topic}
-                </p>
-            `;
-
-            showPracticeQuestion(data.practice_question);
-        }, 1800);
-    }
-</script>
+<script src="/static/app.js" defer></script>
 </body>
 </html>

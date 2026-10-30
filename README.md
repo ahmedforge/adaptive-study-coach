@@ -328,7 +328,7 @@ python -m pytest -q
 Local result (October 30, 2026; no live Gemini calls):
 
 ```text
-46 passed
+60 passed
 ```
 
 ---
@@ -364,7 +364,7 @@ http://127.0.0.1:8000/
 - Gemini-generated practice variants
 - Adaptive state-machine loop
 - MLflow retrieval tracking
-- 46 automated tests passing
+- 60 automated tests passing
 - Dockerized application
 
 ---
@@ -449,3 +449,40 @@ retries are disabled. Generated text is rendered as text rather than HTML.
 These checks validate structure, not mathematical correctness, semantic option
 equivalence, topic alignment, or difficulty. The question bank is not claimed to
 be independently audited. No live provider accuracy result is implied by tests.
+
+## Saved local progress
+
+The practice screen now saves a diagnostic, the current question, remaining weak
+topics, attempts, answer feedback, and practice history in SQLite. On reload,
+choose **Resume saved practice** to continue the same question. **Start new
+diagnostic** forgets this browser's resume token; it does not delete the old server
+record. Correctness is calculated on the server from the saved question. Current
+answer keys are excluded from the session API response until an answer is saved.
+
+- Default database: `progress_data/progress.sqlite3` (ignored by Git). Override
+  with `STUDY_COACH_DB=/absolute/path/progress.sqlite3`.
+- The browser keeps one opaque resume token in localStorage. Only a SHA-256 hash
+  of that token is stored in the database. Possessing the token grants access to
+  that session; this is a local demo, not an authenticated multi-user service.
+- Keep the database file across restarts. Container deployments need a mounted
+  persistent directory and the matching `STUDY_COACH_DB` path; otherwise container
+  replacement loses saved progress. No deployment or Docker changes are included.
+- A stale answer from another tab is rejected. Retrying the most recent identical
+  answer after a lost response returns the saved result without counting it twice.
+- If preparing the next question or saving fails, the previous saved state remains
+  available. Generation takes place outside the short database update.
+- Progress is tied to this server database and browser token. There is no account
+  recovery, cross-device sync, expiry, or automatic retention policy. Clearing
+  browser storage loses the resume token. If storage is blocked, the interface
+  explains that access lasts only while the tab retains its token.
+- The existing one-correct-answer topic advancement remains unchanged; completing
+  a cycle is not evidence of long-term mastery or improved exam scores.
+
+The new UI uses `POST /sessions`, `GET /sessions/current`, and
+`POST /sessions/current/answers`. Resume and answer calls use a Bearer token;
+`question_id` binds each answer to its saved question. Legacy `/agent` endpoints
+remain stateless for compatibility and are not used for saved practice.
+
+Local validation on October 30, 2026: **60 tests passed**, including restart
+recovery, access isolation, server-side grading, response-loss retries, stale
+updates, invalid diagnostics, and failed saves. No live Gemini calls were used.
