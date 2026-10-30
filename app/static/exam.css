@@ -1,0 +1,35 @@
+:root { font-family: system-ui, sans-serif; color: #172534; background: #f3f6fa; }
+body { max-width: 900px; margin: 32px auto; padding: 0 20px; }
+a { color: #1558a0; }
+h1 { font-size: clamp(1.8rem, 5vw, 2.5rem); margin-bottom: 8px; }
+p { line-height: 1.6; }
+.card { background: white; padding: 24px; margin: 20px 0; border: 1px solid #dbe2ec; border-radius: 14px; }
+button, select { font: inherit; border-radius: 8px; padding: 10px 16px; }
+button { background: #174f83; color: white; border: 1px solid #174f83; cursor: pointer; }
+button:disabled { opacity: .5; cursor: default; }
+button:focus-visible, input:focus-visible, select:focus-visible, summary:focus-visible { outline: 3px solid #d08a00; outline-offset: 3px; }
+label { display: block; margin: 14px 0; }
+select { margin-left: 10px; max-width: 100%; border: 1px solid #8094aa; background: white; }
+.toolbar { display: flex; gap: 10px; flex-wrap: wrap; }
+.exam-overview { display: flex; justify-content: space-between; gap: 20px; flex-wrap: wrap; }
+#exam-clock { font-size: 1.5rem; font-variant-numeric: tabular-nums; font-weight: bold; }
+#question-nav { display: grid; grid-template-columns: repeat(auto-fit, minmax(48px, 1fr)); gap: 8px; }
+#question-nav button { padding: 10px 4px; color: #174f83; background: white; }
+#question-nav button.answered { background: #d9efdf; color: #174526; border-color: #4f7d5c; }
+#question-nav button[aria-current="step"] { outline: 3px solid #174f83; outline-offset: 2px; }
+#exam-question label { border: 1px solid #dbe2ec; border-radius: 8px; padding: 14px; cursor: pointer; overflow-wrap: anywhere; }
+input[type="radio"] { margin-right: 10px; }
+fieldset { border: 0; padding: 0; min-width: 0; }
+legend { font-weight: 650; font-size: 1.15rem; line-height: 1.6; }
+#exam-status { min-height: 26px; }
+.score { font-size: 2.4rem; font-weight: bold; color: #174f83; margin: 8px 0; }
+.table-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; }
+caption { text-align: left; font-weight: 650; margin: 12px 0; }
+th, td { text-align: left; border-bottom: 1px solid #dbe2ec; padding: 10px 6px; }
+summary { cursor: pointer; padding: 12px 0; font-weight: 650; }
+details { border-bottom: 1px solid #dbe2ec; }
+details p { overflow-wrap: anywhere; }
+footer { color: #526578; font-size: .9rem; margin: 28px 0; }
+[hidden] { display: none !important; }
+@media (max-width: 500px) { body { padding: 0 12px; } .card { padding: 16px; } th, td { font-size: .85rem; } }

@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Mock Exam · Adaptive AI Study Coach</title>
+<link rel="stylesheet" href="/static/exam.css">
+<script src="/static/exam.js" defer></script>
+</head>
+<body>
+<header><a href="/">← Study coach</a><h1>Timed mock exam</h1>
+<p>Test yourself across 12 math topics. Review your score and solutions when you finish.</p></header>
+<p id="exam-status" role="status" aria-live="polite">Loading…</p>
+<div class="toolbar"><button id="resume-exam" type="button" hidden>Resume saved exam</button><button id="new-exam" type="button" hidden>Set up another exam</button></div>
+<form id="exam-setup" class="card">
+<h2>Set up your exam</h2>
+<p>Questions are sampled from the bank with equal topic coverage. Each correct answer earns one mark; wrong or unanswered questions earn zero. No negative marking.</p>
+<label>Questions <select id="exam-size"><option value="12">12 · one per topic</option><option value="24">24 · two per topic</option></select></label>
+<label>Time limit <select id="exam-duration"><option value="15">15 minutes</option><option value="30" selected>30 minutes</option><option value="45">45 minutes</option><option value="60">60 minutes</option></select></label>
+<p>The timer starts immediately. Answers save when selected. You can change or clear them before submitting. A new exam replaces this browser’s exam resume link.</p>
+<button type="submit">Start timed exam</button>
+</form>
+<section id="exam-workspace" hidden>
+<div class="card exam-overview"><p id="exam-progress"></p><p id="exam-clock" role="timer" aria-label="Time remaining"></p></div>
+<nav id="question-nav" aria-label="Exam questions"></nav>
+<div id="exam-question" class="card"></div>
+<div class="toolbar"><button id="previous-question" type="button">Previous</button><button id="next-question" type="button">Next</button><button id="review-submit" type="button">Review and submit</button></div>
+<div id="submit-confirmation" class="card" hidden><h2>Finish this exam?</h2><p id="submission-summary"></p><p>Submitting ends the exam and reveals the solutions. You cannot change answers afterward.</p><div class="toolbar"><button id="confirm-submit" type="button">Finish exam now</button><button id="cancel-submit" type="button">Keep working</button></div></div>
+</section>
+<section id="exam-report" hidden></section>
+<footer><p>Resume is available in this browser on the same server. Keep the server’s progress database to retain exams. This practice tool is not an official exam or a mastery assessment.</p></footer>
+</body></html>

@@ -552,3 +552,55 @@ older matches. Filtering and reviewing do not submit answers or change progress.
 The history belongs to the current saved session and remains available on resume.
 Filters reset when the session view is rendered again. History is still loaded
 with the session response; this is browser pagination, not server pagination.
+
+
+## Timed mock exams
+
+Open `/exam` (linked from the study screen) to take a bank-based mock exam:
+
+- Choose 12 or 24 questions and a 15, 30, 45, or 60 minute limit in the UI.
+  The API accepts integer durations from 5 to 120 minutes.
+- Topic pools are shuffled and sampled in rounds, giving one or two questions
+  from each of the current 12 topics, without duplicate question IDs.
+- Select an option to save it immediately. Navigate by question number or with
+  Previous/Next, change answers, or clear them. Green navigation buttons indicate
+  saved answers. A failed save shows an error; resume to confirm uncertain saves.
+- The browser stores an opaque exam token separately from the practice token.
+  Reload and select **Resume saved exam** to continue the same paper, answers,
+  and deadline. Starting another exam replaces that browser's exam resume link.
+- **Review and submit** shows the number of unanswered questions before the final
+  **Finish exam now** action. Every correct answer earns one mark; other answers
+  earn zero. There is no negative marking.
+- Submission reveals a saved score, per-topic correct/incorrect/unanswered counts,
+  and expandable solutions for every question. Submitted answers are immutable.
+
+### Exam API and deadline behavior
+
+`POST /exams` creates an exam with `question_count` (12 or 24) and
+`duration_minutes`. Other endpoints require `Authorization: Bearer <exam_token>`:
+
+- `GET /exams/current` resumes the saved paper or completed report.
+- `PUT /exams/current/answers` accepts `question_id`, `selected_answer` (an option
+  or null to clear), and the current integer `version` returned by the server.
+- `POST /exams/current/submit` completes and grades the saved answers.
+
+The server snapshots questions and answer keys at creation. Active responses
+exclude correct answers, explanations, and scores. Changing the bank later cannot
+change an existing paper or its marking. Each draft save uses an optimistic version
+check: a stale edit returns 409, while an identical retry returns the saved state.
+Exam tokens and practice tokens cannot be interchanged.
+
+The server owns the deadline. Reads, answer saves, and submissions finalize an
+expired exam before accepting changes. No background worker is required: if the
+browser or server closes, the next request finalizes the saved answers against
+the original deadline. Expiry cannot be extended by reloading or changing the
+browser clock. The displayed countdown is advisory; late answer requests are
+rejected even if a browser timer was paused. Only answers confirmed in server
+storage count. The browser checks expiry automatically while the page is open.
+
+Exams share `STUDY_COACH_DB` and its persistence requirements with practice. They
+use the curated bank, without AI question generation. Questions may recur across
+separate exams. Scores describe a small question sample, not standardized exam
+readiness or mastery. As with practice, tokens grant access to local demo data;
+there are no accounts, cross-device recovery, retention policy, or public-service
+abuse controls. Do not publish the demo as an authenticated exam platform.

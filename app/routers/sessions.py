@@ -37,7 +37,7 @@ def read_session(store, token):
         record = store.load(token)
     except sqlite3.Error as exc:
         raise HTTPException(503, 'Saved progress is unavailable. Please try again.') from exc
-    if record is None:
+    if record is None or record[1].get('kind') == 'exam':
         raise HTTPException(401, 'Saved session not found. Start a new diagnostic.')
     return record
 
