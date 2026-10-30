@@ -234,3 +234,121 @@ def test_creation_save_failure_has_safe_error(exam_client, monkeypatch):
     response = client.post('/exams', json={})
     assert response.status_code == 503
     assert 'private-storage-message' not in response.text
+
+
+@pytest.fixture
+def revision_ready(exam_client, monkeypatch):
+    from app.models.generated_question import PracticeQuestion
+    def practice(state, **kwargs):
+        if state.status == 'complete': return None
+        return PracticeQuestion(question='What is 2 + 3?', options=['3', '4', '5', '6'],
+            correct_answer='5', explanation='Two plus three equals five.', seed_question_id='revision-seed')
+    monkeypatch.setattr(sessions, 'get_practice_question', practice)
+    client, store, clock = exam_client
+    data, headers = start(exam_client, question_count=24)
+    version, payload = store.load(data['exam_token'])
+    payload['answers'] = {q['id']: q['correct_answer'] for q in payload['questions']}
+    first, second = payload['questions'][:2]
+    for q in payload['questions']:
+        if q['topic'] == first['topic']:
+            payload['answers'][q['id']] = next(o for o in q['options'] if o != q['correct_answer'])
+    payload['answers'].pop(second['id'])
+    assert store.save(data['exam_token'], version, payload)
+    report = client.post('/exams/current/submit', headers=headers).json()
+    return exam_client, data, headers, report, [first['topic'], second['topic']]
+
+
+def test_revision_uses_server_snapshot_prioritizes_misses_and_keeps_report(revision_ready, monkeypatch):
+    (client, store, clock), exam_data, headers, report, topics = revision_ready
+    monkeypatch.setenv('STUDY_COACH_TARGET_CORRECT', '3')
+    monkeypatch.setattr(exams, 'load_questions', lambda: [])
+    response = client.post('/exams/current/revision', headers=headers)
+    assert response.status_code == 200
+    revision = response.json()
+    assert revision['assessment_source'] == 'mock_exam'
+    assert revision['state']['weak_topics'] == topics
+    assert revision['state']['target_correct'] == 3
+    assert len(revision['state']['diagnostic_results']) == 24
+    assert {r['question_id'] for r in revision['state']['diagnostic_results']} == {
+        q['id'] for q in exam_data['questions']}
+    assert revision['diagnostic_summary']['correct'] == 21
+    assert revision['diagnostic_summary']['incorrect'] == 2
+    assert revision['diagnostic_summary']['unanswered'] == 1
+    assert 'correct_answer' not in revision['practice_question']
+    assert client.get('/exams/current', headers=headers).json() == report
+    practice_headers = {'Authorization': 'Bearer ' + revision['session_token']}
+    resumed = client.get('/sessions/current', headers=practice_headers)
+    assert resumed.status_code == 200
+    assert resumed.json()['practice_question'] == revision['practice_question']
+    assert client.get('/exams/current', headers=practice_headers).status_code == 401
+    assert revision['session_token'].encode() not in store.path.read_bytes()
+
+
+def test_revision_retry_resumes_existing_answers_and_does_not_regenerate(revision_ready, monkeypatch):
+    (client, store, clock), _, headers, _, _ = revision_ready
+    created = client.post('/exams/current/revision', headers=headers).json()
+    practice_headers = {'Authorization': 'Bearer ' + created['session_token']}
+    answered = client.post('/sessions/current/answers', headers=practice_headers, json={
+        'question_id': created['practice_question']['id'], 'selected_answer': '3'})
+    assert answered.status_code == 200
+    def unexpected(*args, **kwargs): raise AssertionError('must reuse the saved revision')
+    monkeypatch.setattr(sessions, 'get_practice_question', unexpected)
+    monkeypatch.setenv('STUDY_COACH_TARGET_CORRECT', 'invalid')
+    retry = client.post('/exams/current/revision', headers=headers)
+    assert retry.status_code == 200
+    assert retry.json()['session_token'] == created['session_token']
+    assert retry.json()['history'] == answered.json()['history']
+    assert retry.json()['practice_question'] == answered.json()['practice_question']
+    assert len(retry.json()['history']) == 1
+
+
+def test_revision_requires_finished_exam_and_no_revision_for_perfect_score(exam_client):
+    client, store, clock = exam_client
+    data, headers = start(exam_client)
+    assert client.post('/exams/current/revision', headers=headers).status_code == 409
+    version, payload = store.load(data['exam_token'])
+    payload['answers'] = {q['id']: q['correct_answer'] for q in payload['questions']}
+    assert store.save(data['exam_token'], version, payload)
+    client.post('/exams/current/submit', headers=headers)
+    assert client.post('/exams/current/revision', headers=headers).status_code == 422
+
+
+def test_expired_exam_can_start_revision(exam_client, monkeypatch):
+    from app.models.generated_question import PracticeQuestion
+    client, store, clock = exam_client
+    data, headers = start(exam_client, duration_minutes=5)
+    monkeypatch.setattr(sessions, 'get_practice_question', lambda *args, **kwargs:
+        PracticeQuestion(question='q', options=['a', 'b', 'c', 'd'], correct_answer='a', explanation='e'))
+    clock[0] += timedelta(minutes=6)
+    response = client.post('/exams/current/revision', headers=headers)
+    assert response.status_code == 200
+    assert response.json()['diagnostic_summary']['unanswered'] == 12
+    assert client.get('/exams/current', headers=headers).json()['completion_reason'] == 'time_expired'
+
+
+def test_revision_creation_failure_leaves_report_and_can_retry(revision_ready, monkeypatch):
+    (client, store, _), _, headers, report, _ = revision_ready
+    real_create = store.create_once
+    def fail(*args): raise sqlite3.OperationalError('private-db-details')
+    monkeypatch.setattr(store, 'create_once', fail)
+    response = client.post('/exams/current/revision', headers=headers)
+    assert response.status_code == 503
+    assert 'private-db-details' not in response.text
+    assert client.get('/exams/current', headers=headers).json() == report
+    monkeypatch.setattr(store, 'create_once', real_create)
+    assert client.post('/exams/current/revision', headers=headers).status_code == 200
+
+
+def test_revision_generation_failure_keeps_report(revision_ready, monkeypatch):
+    (client, store, _), _, headers, report, _ = revision_ready
+    monkeypatch.setattr(sessions, 'get_practice_question', lambda *args, **kwargs: None)
+    assert client.post('/exams/current/revision', headers=headers).status_code == 503
+    assert client.get('/exams/current', headers=headers).json() == report
+
+
+def test_create_once_does_not_overwrite_a_concurrent_winner(exam_client):
+    client, store, clock = exam_client
+    other_connection = ProgressStore(store.path)
+    assert store.create_once('derived-token', {'history': ['winner']})
+    assert not other_connection.create_once('derived-token', {'history': []})
+    assert store.load('derived-token')[1]['history'] == ['winner']

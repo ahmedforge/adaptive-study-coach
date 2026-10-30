@@ -48,12 +48,12 @@ function savedStatus() {
 function topicLabel(topic) {
     return topic.replaceAll('_', ' ');
 }
-function renderDiagnosticSummary(summary) {
+function renderDiagnosticSummary(summary, source = 'diagnostic') {
     const details = document.createElement('details');
-    details.append(element('summary', `Diagnostic: ${summary.correct} / ${summary.total} correct, ${summary.incorrect} incorrect, ${summary.unanswered} unanswered`));
-    details.append(element('p', 'Practice includes topics with incorrect or unanswered questions, ordered by the number missed. This short diagnostic is a starting point, not a mastery assessment.'));
+    details.append(element('summary', `${source === 'mock_exam' ? 'Mock exam' : 'Diagnostic'}: ${summary.correct} / ${summary.total} correct, ${summary.incorrect} incorrect, ${summary.unanswered} unanswered`));
+    details.append(element('p', 'Practice includes topics with incorrect or unanswered questions, ordered by the number missed. These results are a starting point, not a mastery assessment.'));
     const table = document.createElement('table');
-    table.append(element('caption', 'Results from your saved diagnostic'));
+    table.append(element('caption', source === 'mock_exam' ? 'Results from your saved mock exam' : 'Results from your saved diagnostic'));
     const head = document.createElement('thead');
     const headings = document.createElement('tr');
     for (const title of ['Topic', 'Correct', 'Incorrect', 'Unanswered']) {
@@ -139,7 +139,7 @@ function renderSession(data, reviewAnswer = true) {
     resumeControls.hidden = false;
     resumeButton.textContent = 'Resume latest saved progress';
     reportBox.replaceChildren(element('h2', data.state.status === 'complete' ? 'Practice cycle complete' : 'Saved progress'));
-    renderDiagnosticSummary(data.diagnostic_summary);
+    renderDiagnosticSummary(data.diagnostic_summary, data.assessment_source);
     const correct = data.history.filter(attempt => attempt.is_correct).length;
     reportBox.append(element('p', `${data.history.length} practice answers saved; ${correct} correct.`));
     reportBox.append(element('p', `Remaining topics: ${data.state.weak_topics.map(topicLabel).join(', ') || 'None in this cycle'}`));
@@ -265,6 +265,10 @@ async function initialize() {
             resumeControls.hidden = false;
             statusBox.textContent = 'Saved practice is available. Resume it or start a new diagnostic.';
             showDiagnostic(false);
+            if (new URLSearchParams(window.location.search).get('resume') === '1') {
+                renderSession(await request('/sessions/current', { headers: headers() }));
+                savedStatus();
+            }
         }
     } catch (error) { statusBox.textContent = error.message; }
     finally { busy(false); }

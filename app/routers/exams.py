@@ -1,4 +1,6 @@
 """Timed, resumable bank-based mock exams; answers stay private until completion."""
+import hashlib
+import hmac
 import random
 import sqlite3
 from datetime import datetime, timedelta, timezone
@@ -10,7 +12,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 from app.models.diagnostic import DiagnosticResult
 from app.repositories.question_repository import load_questions
-from app.routers.sessions import bearer, get_store
+from app.routers.sessions import bearer, build_session, get_store, public_session
 from app.services.diagnostic_service import summarize_diagnostic
 
 router = APIRouter(prefix='/exams', tags=['mock exams'])
@@ -92,22 +94,29 @@ def expire_if_needed(store, token, version, data):
     return version, data
 
 
+def exam_diagnostic_results(data):
+    results = []
+    for q in data['questions']:
+        selected = data['answers'].get(q['id'])
+        correct = selected == q['correct_answer']
+        results.append(DiagnosticResult(question_id=q['id'], topic=q['topic'],
+            subtopic=q['subtopic'], is_correct=correct,
+            error_type='correct' if correct else 'unanswered' if selected is None else 'concept_error'))
+    return results
+
+
 def public_exam(version, data):
     response = {key: data[key] for key in ['status', 'started_at', 'expires_at', 'duration_minutes']}
     response.update(version=version, server_now=utc_now().isoformat(), answers=data['answers'],
         questions=[{key: q[key] for key in ['id', 'topic', 'question', 'options']} for q in data['questions']])
     if data['status'] == 'completed':
         results = []
-        diagnostic = []
         for q in data['questions']:
             selected = data['answers'].get(q['id'])
             correct = selected == q['correct_answer']
             results.append({key: q[key] for key in ['id', 'topic', 'question', 'correct_answer', 'explanation']}
                            | {'selected_answer': selected, 'is_correct': correct})
-            diagnostic.append(DiagnosticResult(question_id=q['id'], topic=q['topic'],
-                subtopic=q['subtopic'], is_correct=correct,
-                error_type='correct' if correct else 'unanswered' if selected is None else 'concept_error'))
-        summary = summarize_diagnostic(diagnostic)
+        summary = summarize_diagnostic(exam_diagnostic_results(data))
         response.update(results=results, summary=summary,
             score_percent=round(100 * summary['correct'] / summary['total'], 1),
             completion_reason=data['completion_reason'], completed_at=data['completed_at'])
@@ -168,3 +177,29 @@ def submit_exam(credentials: HTTPAuthorizationCredentials = Depends(bearer), sto
         finish(data, 'submitted')
         version, data = save_exam(store, token, version, data)
     return public_exam(version, data)
+
+
+@router.post('/current/revision')
+def start_revision(credentials: HTTPAuthorizationCredentials = Depends(bearer), store=Depends(get_store)):
+    token = credentials.credentials
+    version, data = read_exam(store, token)
+    _, data = expire_if_needed(store, token, version, data)
+    if data['status'] != 'completed':
+        raise HTTPException(409, 'Finish the exam before starting revision.')
+    results = exam_diagnostic_results(data)
+    if all(result.is_correct for result in results):
+        raise HTTPException(422, 'This exam has no missed or unanswered topics to revise.')
+    # A domain-separated child token allows retries without storing raw tokens or
+    # resetting revision progress. Possession of the exam token authorizes access.
+    revision_token = hmac.new(token.encode(), b'exam-revision:v1', hashlib.sha256).hexdigest()
+    try:
+        record = store.load(revision_token)
+        if record is None:
+            session = build_session(results, assessment_source='mock_exam')
+            store.create_once(revision_token, session)
+            record = store.load(revision_token)
+    except sqlite3.Error as exc:
+        raise HTTPException(503, 'Could not prepare revision. Your exam report is unchanged. Please retry.') from exc
+    if record is None:
+        raise HTTPException(503, 'Revision is unavailable. Please retry.')
+    return {'session_token': revision_token, **public_session(record[1])}

@@ -42,6 +42,13 @@ class ProgressStore:
                        (self.digest(token), json.dumps(data)))
         return token
 
+    def create_once(self, token, data):
+        """Atomically create a linked session without resetting an existing one."""
+        with self.connect() as db:
+            result = db.execute('INSERT OR IGNORE INTO study_sessions VALUES (?, 0, ?)',
+                                (self.digest(token), json.dumps(data)))
+        return result.rowcount == 1
+
     def load(self, token):
         with self.connect() as db:
             row = db.execute('SELECT version, payload FROM study_sessions WHERE token_hash = ?',

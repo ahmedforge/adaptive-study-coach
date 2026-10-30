@@ -138,6 +138,34 @@ async function saveAnswer(questionId, selected) {
         }
     }
 }
+function renderRevisionAction(box) {
+    if (exam.summary.incorrect + exam.summary.unanswered === 0) {
+        box.append(node('p', 'No missed or unanswered topics in this exam. You can take another paper for more practice.'));
+        return;
+    }
+    const panel = document.createElement('div');
+    panel.className = 'card';
+    panel.append(node('h3', 'Turn these results into practice'));
+    panel.append(node('p', 'Start or resume this exam’s revision plan, focused on incorrect and unanswered topics. This replaces the study coach’s practice resume link in this browser. Your exam report remains saved.'));
+    const button = node('button', 'Start or resume targeted revision'); button.type = 'button';
+    button.addEventListener('click', async () => {
+        if (working) return;
+        busy(true); status('Preparing your saved revision plan…');
+        try {
+            const data = await request('/exams/current/revision', 'POST');
+            try { localStorage.setItem('study-coach-session:v1', data.session_token); }
+            catch { throw new Error('Revision is saved, but browser storage is blocked. Enable storage here and retry to open it.'); }
+            const link = node('a', 'Open targeted revision'); link.href = '/?resume=1';
+            panel.append(node('p', 'Your revision plan is ready.'), link);
+            button.hidden = true;
+            link.focus();
+            status('Revision saved. Open targeted revision to continue.');
+        } catch (error) { status(error.message); }
+        finally { busy(false); }
+    });
+    panel.append(button);
+    box.append(panel);
+}
 function renderReport() {
     const box = $('exam-report'); box.replaceChildren(); box.className = 'card';
     const heading = node('h2', 'Your exam report'); heading.tabIndex = -1;
@@ -145,6 +173,7 @@ function renderReport() {
         ? 'Time expired. Your saved answers have been graded.' : 'Exam submitted. Your saved answers have been graded.'));
     const score = node('p', `${exam.summary.correct} / ${exam.summary.total} · ${exam.score_percent}%`); score.className = 'score';
     box.append(score, node('p', `${exam.summary.incorrect} incorrect · ${exam.summary.unanswered} unanswered. One mark per correct answer; no negative marking.`));
+    renderRevisionAction(box);
     const wrap = document.createElement('div'); wrap.className = 'table-wrap';
     const table = document.createElement('table'); table.append(node('caption', 'Topic breakdown'));
     const head = document.createElement('thead'); const row = document.createElement('tr');

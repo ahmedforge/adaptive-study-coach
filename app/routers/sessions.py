@@ -55,12 +55,28 @@ def public_session(data):
     question = data['question']
     state = AgentState.model_validate(data['state'])
     return {
+        'assessment_source': data.get('assessment_source', 'diagnostic'),
         'diagnostic_summary': summarize_diagnostic(state.diagnostic_results),
         'state': state.model_dump(),
         'practice_question': ({key: question[key] for key in
             ['id', 'question', 'options', 'generation_source']} if question else None),
         'history': data['history'], 'updated_at': data['updated_at'],
     }
+
+
+def build_session(results, assessment_source='diagnostic'):
+    try:
+        target = int(os.getenv('STUDY_COACH_TARGET_CORRECT', '2'))
+        if not 1 <= target <= 5:
+            raise ValueError('out of range')
+    except ValueError as exc:
+        raise HTTPException(503, 'Practice target configuration must be an integer from 1 to 5.') from exc
+    state = identify_weak_topics(AgentState(
+        diagnostic_results=results, target_correct=target))
+    data = {'state': state.model_dump(), 'question': question_record(state),
+            'history': [], 'updated_at': now(), 'last_answer': None,
+            'assessment_source': assessment_source}
+    return data
 
 
 @router.post('', status_code=201)
@@ -73,16 +89,7 @@ def create_session(submission: DiagnosticSubmission, store=Depends(get_store)):
     if any(a.selected_answer is not None and a.selected_answer not in expected[a.question_id].options
            for a in submission.answers):
         raise HTTPException(422, 'Select a listed diagnostic option or leave it unanswered.')
-    try:
-        target = int(os.getenv('STUDY_COACH_TARGET_CORRECT', '2'))
-        if not 1 <= target <= 5:
-            raise ValueError('out of range')
-    except ValueError as exc:
-        raise HTTPException(503, 'Practice target configuration must be an integer from 1 to 5.') from exc
-    state = identify_weak_topics(AgentState(
-        diagnostic_results=evaluate_diagnostic(submission), target_correct=target))
-    data = {'state': state.model_dump(), 'question': question_record(state),
-            'history': [], 'updated_at': now(), 'last_answer': None}
+    data = build_session(evaluate_diagnostic(submission))
     try:
         token = store.create(data)
     except sqlite3.Error as exc:

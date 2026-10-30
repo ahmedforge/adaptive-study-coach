@@ -604,3 +604,29 @@ separate exams. Scores describe a small question sample, not standardized exam
 readiness or mastery. As with practice, tokens grant access to local demo data;
 there are no accounts, cross-device recovery, retention policy, or public-service
 abuse controls. Do not publish the demo as an authenticated exam platform.
+
+
+### Turn an exam into targeted revision
+
+A completed exam with incorrect or unanswered questions offers **Start or resume
+targeted revision**. The server creates a practice plan from the exam's saved
+question snapshot and answers, prioritizing topics by missed-question count. It
+includes unanswered questions and excludes topics answered entirely correctly.
+The existing practice target, saved streaks, seed rotation, answer review, and
+history filters work with this plan. Exam seed IDs are passed into practice
+selection so unseen seeds are preferred where available.
+
+`POST /exams/current/revision` requires the exam Bearer token. It rejects active
+exams (409) and perfect papers (422). An expired exam is finalized first. Repeated
+requests return the same revision session and retain any practice progress;
+concurrent creation cannot overwrite an existing plan. Tokens are derived with
+a domain-separated HMAC from the exam's random secret token, and only token
+hashes are stored in SQLite. The exam score and report remain unchanged.
+
+The browser saves the practice token separately from the exam token and opens
+`/?resume=1` to resume practice directly. Starting revision replaces the browser's
+current practice resume link; it does not delete that earlier session. Storage
+must be enabled for this handoff between pages. If storage is blocked, enable it
+and retry the same action to recover the saved revision plan. The practice screen
+labels the assessment **Mock exam** rather than **Diagnostic**. Older practice
+sessions without source metadata retain their diagnostic label.
