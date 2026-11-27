@@ -63,3 +63,11 @@ test('resuming selects the requested token and keeps secrets out of URLs', () =>
     assert.equal(state.destination(), '/?resume=1');
     assert.equal(state.library.list().length, 2);
 });
+
+test('owned sessions can reopen when browser storage is blocked', () => {
+    const state = load({}, true);
+    const id = 'a'.repeat(64);
+    state.library.resume({kind: 'exam', id});
+    assert.equal(state.destination(), '/exam?resume=1#account=' + id);
+    assert.throws(() => state.library.resume({kind: 'practice', id: '../bad'}));
+});

@@ -4,8 +4,6 @@ import os
 import re
 
 from dotenv import load_dotenv
-from google import genai
-from google.genai import types
 
 from app.models.generated_question import GeneratedQuestion, PracticeQuestion
 from app.models.question import Question
@@ -18,6 +16,9 @@ MAX_RESPONSE_CHARS = 12000
 
 def _request_variant(prompt: str) -> str | None:
     # Initialize only when needed: a missing key must not prevent app startup.
+    from google import genai
+    from google.genai import types
+
     with genai.Client(
         api_key=os.environ["GEMINI_API_KEY"],
         http_options=types.HttpOptions(
@@ -26,7 +27,7 @@ def _request_variant(prompt: str) -> str | None:
         ),
     ) as client:
         return client.models.generate_content(
-            model="gemini-3-flash-preview", contents=prompt,
+            model=os.getenv("GEMINI_MODEL", "gemini-3-flash-preview"), contents=prompt,
         ).text
 
 

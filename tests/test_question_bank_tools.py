@@ -64,6 +64,7 @@ def test_append_preserves_order_exact_backup_and_permissions(tmp_path):
     original = [sample(f'q_{i:03}', f'Question {i}?') for i in range(16)]
     bank = write(tmp_path / 'bank.json', original)
     bank.chmod(0o644)
+    original_mode = bank.stat().st_mode
     batch = write(tmp_path / 'batch.json', [sample('new_001', 'New question?')])
     before = bank.read_bytes()
     result = import_batch(bank, batch, write=True)
@@ -72,7 +73,7 @@ def test_append_preserves_order_exact_backup_and_permissions(tmp_path):
     assert merged[-1].id == 'new_001'
     assert Path(result['backup']).read_bytes() == before
     assert bank.read_bytes().startswith(before[:before.rfind(b']')].rstrip())
-    assert bank.stat().st_mode & 0o777 == 0o644
+    assert bank.stat().st_mode == original_mode
     assert not list(tmp_path.glob('.bank-*.tmp'))
 
 

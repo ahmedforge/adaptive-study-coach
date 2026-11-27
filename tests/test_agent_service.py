@@ -89,6 +89,7 @@ import app.services.agent_service as service
 
 
 def test_practice_passes_topic_and_seen_diagnostic_and_practice_ids(monkeypatch):
+    monkeypatch.setenv('STUDY_COACH_PRACTICE_RETRIEVAL', 'semantic')
     calls = {}
     seed = SimpleNamespace(id='seed2', topic='algebra')
     def search(**kwargs):
@@ -105,6 +106,7 @@ def test_practice_passes_topic_and_seen_diagnostic_and_practice_ids(monkeypatch)
 
 
 def test_wrong_topic_result_cannot_be_generated(monkeypatch):
+    monkeypatch.setenv('STUDY_COACH_PRACTICE_RETRIEVAL', 'semantic')
     monkeypatch.setattr(service, 'retriever', SimpleNamespace(search=lambda **kwargs:
         [{'question': SimpleNamespace(topic='trigonometry'), 'score': .9}]))
     monkeypatch.setattr(service, 'generate_variant', lambda seed: (_ for _ in ()).throw(AssertionError('must not generate')))
@@ -131,3 +133,16 @@ def test_target_requires_consecutive_correct_and_resets_between_topics():
     update_after_practice(state, True)
     assert state.status == 'complete'
     assert state.correct_streak == 0
+
+
+def test_bank_practice_prefers_unseen_then_least_recent_within_topic(monkeypatch):
+    monkeypatch.delenv('STUDY_COACH_PRACTICE_RETRIEVAL', raising=False)
+    questions = [SimpleNamespace(id=id_, topic=topic) for id_, topic in [
+        ('other', 'geometry'), ('a', 'algebra'), ('b', 'algebra'), ('c', 'algebra')]]
+    monkeypatch.setattr(service, 'retriever', SimpleNamespace(questions=questions))
+    monkeypatch.setattr(service, 'generate_variant', lambda question: question.id)
+    state = AgentState(diagnostic_results=[], current_topic='algebra')
+    assert service.get_practice_question(state, recent_question_ids=['b', 'a']) == 'c'
+    assert service.get_practice_question(state, recent_question_ids=['b', 'a', 'c', 'b']) == 'a'
+    state.current_topic = 'unknown'
+    assert service.get_practice_question(state) is None

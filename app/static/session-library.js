@@ -27,12 +27,47 @@ window.StudyLibrary = (() => {
         try { localStorage.setItem(KEY, JSON.stringify(entries.slice(-50))); }
         catch { available = false; }
     }
+    function saveActive(kind, token) {
+        if (!valid({kind, token})) throw new Error('Invalid saved session reference.');
+        try {
+            localStorage.setItem(activeKeys[kind], token);
+            return true;
+        } catch {
+            available = false;
+            return false;
+        }
+    }
     function resume(entry) {
-        if (!valid(entry)) throw new Error('Invalid saved session reference.');
-        localStorage.setItem(activeKeys[entry.kind], entry.token);
-        remember(entry.kind, entry.token);
-        window.location.assign(entry.kind === 'exam' ? '/exam?resume=1' : '/?resume=1');
+        if (!entry || !Object.hasOwn(activeKeys, entry.kind)) throw new Error('Invalid saved session reference.');
+        const path = entry.kind === 'exam' ? '/exam?resume=1' : '/?resume=1';
+        if (Object.hasOwn(entry, 'id')) {
+            if (!/^[a-f0-9]{64}$/.test(entry.id)) throw new Error('Invalid account session reference.');
+            window.location.assign(path + '#account=' + entry.id);
+        } else {
+            if (!saveActive(entry.kind, entry.token)) throw new Error('Enable browser storage to open this browser-only session.');
+            remember(entry.kind, entry.token);
+            window.location.assign(path);
+        }
+    }
+    async function openAccount(kind, id) {
+        const response = await fetch('/account/open', {
+            method: 'POST', headers: {'Content-Type': 'application/json', 'X-Study-Coach': '1'},
+            body: JSON.stringify({id}), signal: AbortSignal.timeout(15000),
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Sign in again to open this session.');
+        if (data.kind !== kind || !valid({kind, token: data.session_token})) {
+            throw new Error('Open this session from its card on your dashboard.');
+        }
+        return data.session_token;
+    }
+    async function accountResumeToken(kind) {
+        const match = /^#account=([a-f0-9]{64})$/.exec(window.location.hash);
+        if (!match) throw new Error('Reopen the saved session from your dashboard.');
+        const token = await openAccount(kind, match[1]);
+        if (saveActive(kind, token)) remember(kind, token);
+        return token;
     }
     for (const entry of list()) remember(entry.kind, entry.token);
-    return {list, remember, resume, storageAvailable: () => available};
+    return {list, remember, resume, accountResumeToken, saveActive, storageAvailable: () => available};
 })();

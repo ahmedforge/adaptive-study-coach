@@ -45,7 +45,7 @@ async function request(path, method = 'GET', body) {
 }
 function savedMessage() {
     return storageWorks ? 'Saved on this server. Resume from this browser if you leave.'
-        : 'Saved on this server, but browser storage is blocked. Keep this tab open to retain access.';
+        : 'Saved on this server, but browser storage is blocked. Signed-in learners can reopen it from the dashboard. For anonymous exams, keep this tab open.';
 }
 function applyExam(data) {
     window.StudyLibrary?.remember('exam', token);
@@ -158,7 +158,11 @@ function renderRevisionAction(box) {
                 localStorage.setItem('study-coach-session:v1', data.session_token);
                 window.StudyLibrary?.remember('practice', data.session_token);
             }
-            catch { throw new Error('Revision is saved, but browser storage is blocked. Enable storage here and retry to open it.'); }
+            catch {
+                const link = node('a', 'Open dashboard'); link.href = '/dashboard';
+                panel.append(link); link.focus();
+                throw new Error('Revision saved. Signed-in learners can open it from their dashboard. For anonymous revision, enable browser storage and retry.');
+            }
             const link = node('a', 'Open targeted revision'); link.href = '/?resume=1';
             panel.append(node('p', 'Your revision plan is ready.'), link);
             button.hidden = true;
@@ -207,6 +211,7 @@ $('exam-setup').addEventListener('submit', async event => {
     try {
         const data = await request('/exams', 'POST', {question_count: Number($('exam-size').value), duration_minutes: Number($('exam-duration').value)});
         token = data.exam_token;
+        if (window.location.hash) window.history.replaceState(null, '', '/exam?resume=1');
         try { localStorage.setItem(TOKEN_KEY, token); } catch { storageWorks = false; }
         questionIndex = 0; applyExam(data); status(savedMessage());
         $('current-question-heading').focus();
@@ -235,7 +240,17 @@ $('confirm-submit').addEventListener('click', async () => {
     catch (error) { status(error.message); }
     finally { busy(false); }
 });
-if (token) { $('exam-setup').hidden = true; $('resume-exam').hidden = false; $('new-exam').hidden = false; status('A saved exam is available. Resume it to continue or view its report.'); }
-else status('Ready to start.');
-
-if (token && new URLSearchParams(window.location.search).get('resume') === '1') resume();
+async function initialize() {
+    try {
+        if (window.location.hash.startsWith('#account=')) {
+            busy(true);
+            try { token = await window.StudyLibrary.accountResumeToken('exam'); }
+            finally { busy(false); }
+        }
+        if (!token) { status('Ready to start.'); return; }
+        $('exam-setup').hidden = true; $('resume-exam').hidden = false; $('new-exam').hidden = false;
+        status('A saved exam is available. Resume it to continue or view its report.');
+        if (new URLSearchParams(window.location.search).get('resume') === '1') await resume();
+    } catch (error) { status(error.message); }
+}
+initialize();

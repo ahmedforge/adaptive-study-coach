@@ -1,0 +1,5 @@
+fastapi
+uvicorn
+pydantic>=2,<3
+python-dotenv
+argon2-cffi>=23.1,<26

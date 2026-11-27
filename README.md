@@ -1,448 +1,58 @@
 # Adaptive AI Study Coach
 
-Adaptive AI Study Coach is a Math-focused exam preparation system that identifies a student's weak topics through a diagnostic test and then generates targeted practice questions using retrieval-augmented generation.
+A FAST-NUCES math exam practice app by Ahmed, built as an AI Bootcamp capstone. Start with a 12-question diagnostic, practice the topics you missed, or take a timed mock exam. The bundled bank has 98 questions across 12 topics. The default app runs locally after installation, including grading, explanations, exam revision, accounts, and saved progress.
 
-The MVP is designed for FAST-NUCES entry / transfer test preparation and focuses on adaptive practice rather than static question sets.
+## Run on Windows
 
+From the repository folder in a VS Code PowerShell terminal with Python 3.12 installed, run:
 
-Current features include validated question-bank imports, diagnostics, saved
-adaptive practice, timed mock exams, exam-to-revision plans, a progress dashboard,
-and optional accounts for resuming the same progress across devices. Anonymous
-practice remains available. See **Accounts and cross-device progress** below for
-setup, ownership, and recovery limits.
-
----
-
-## Problem
-
-Traditional practice books and question banks usually give every student the same questions.
-
-They do not adapt based on:
-
-- weak topics
-- repeated mistakes
-- individual learning needs
-
-The goal of this project is to create an AI-powered study loop that diagnoses weaknesses and generates targeted practice.
-
----
-
-## Solution
-
-The system:
-
-1. Gives the student a 12-question Math diagnostic.
-2. Grades responses automatically.
-3. Detects weak topics.
-4. Selects the highest-priority weak topic.
-5. Retrieves a semantically relevant seed question using FAISS.
-6. Uses Gemini to generate a fresh question variant.
-7. Grades the student's practice response.
-8. In saved sessions, practices each topic until the consecutive-correct target is reached (two by default). Wrong answers reset the streak.
-
----
-
-## Technical Flow
-
-```text
-Student
-   |
-   v
-12-Question Diagnostic
-   |
-   v
-Deterministic Grading
-   |
-   v
-Weak Topic Detection
-   |
-   v
-Agent State Machine
-   |
-   v
-Weak-Topic Query
-   |
-   v
-SentenceTransformer Embedding
-(all-MiniLM-L6-v2)
-   |
-   v
-FAISS Vector Search
-   |
-   v
-Relevant Seed MCQ
-   |
-   v
-Gemini Variant Generation
-   |
-   v
-Student Answers Practice Question
-   |
-   v
-Auto-Grading
-   |
-   +----------------------+
-   |                      |
-Incorrect              Correct
-   |                      |
-Repeat Topic        Check Streak Target
-   |                      |
-   +------- Agent Loop ----+
+```powershell
+py -3.12 -m venv .venv
+.\.venv\Scripts\python.exe -m pip install -r requirements-core.txt
+.\.venv\Scripts\python.exe -m uvicorn app.main:app --host 127.0.0.1 --port 8000
 ```
 
----
+Open [Study Coach](http://127.0.0.1:8000/). Keep the terminal open while studying. Use Ctrl+C to stop. For later sessions, run the last command from the same folder. On macOS or Linux, create the environment with `python3.12 -m venv .venv` and use `.venv/bin/python` for the install and server commands.
 
-## RAG Pipeline
+| Page | What you can do |
+| --- | --- |
+| `/` | Review diagnostic results and work through weak topics with explanations and saved answer history. |
+| `/exam` | Take a timed mock exam, review its report and turn missed questions into a revision plan. |
+| `/dashboard` | Resume practice or exams and compare results by topic. |
+| `/account` | Create an account, sign in, or claim earlier sessions from this browser. |
+| `/docs` | Explore the FastAPI endpoints. |
 
-After a correct answer, saved sessions repeat the topic until the streak target
-is reached, then advance to the next weak topic.
+New learners can start anonymously. Keep browser storage enabled for anonymous resume links. For a shared server, sign in on each device to reopen owned sessions. Native local progress lives in `progress_data/progress.sqlite3`. Keep this file across upgrades. To back it up locally, stop the app first and copy the progress directory.
 
-The retrieval-augmented generation pipeline has three main stages.
+## Run with Docker
 
-### 1. Retrieval
-
-Each seed question is represented using its topic, subtopic, and question text.
-
-The text is converted into a semantic embedding using:
-
-```text
-all-MiniLM-L6-v2
+```sh
+docker compose up --build --wait
+docker compose logs coach
 ```
 
-The embeddings are normalized and stored in a FAISS index.
+Open the same local URL. `docker compose down` stops the service and preserves the named progress volume. The container stores SQLite at `/data/progress.sqlite3`. For an existing installation, back up the previous database before moving it to this volume with ownership writable by the container user. Local HTTP account changes require a loopback connection on both ends. Where Docker networking presents a bridge address, use the native quickstart for accounts or configure HTTPS at a trusted reverse proxy.
 
-When the agent identifies a weak topic, that topic is also embedded and compared with the stored vectors.
+## Optional AI features
 
-FAISS returns the most semantically relevant seed question.
+The default practice picker selects an unseen question from the exact weak topic, then rotates to the least recently used question when that pool is exhausted. Install `requirements.txt` in the same environment for MiniLM semantic retrieval, Gemini generation and MLflow retrieval tracking.
 
-### 2. Augmentation
+- Set `STUDY_COACH_PRACTICE_RETRIEVAL=semantic` to use the MiniLM/FAISS picker during practice. The first semantic search needs the model cached locally or network access to download it. The explicit `/retrieval/search` endpoint also uses this index.
+- Set `GEMINI_API_KEY` in the environment or a local `.env` to request question variants. Set `GEMINI_MODEL` to choose a model enabled for your account. A missing key or failed generation uses the bank question with its worked solution.
+- Use `MLFLOW_TRACKING_URI` to configure tracking for semantic searches. New practice sessions default to two consecutive correct answers per topic. Set `STUDY_COACH_TARGET_CORRECT` to an integer from 1 to 5 to change that target.
 
-The retrieved seed MCQ is inserted into the Gemini prompt as grounding context.
+## Verify the installation
 
-### 3. Generation
-
-Gemini generates a new MCQ that keeps the same topic, skill, and approximate difficulty while changing the wording or values.
-
-This avoids simply copying the original seed question.
-
----
-
-## Agent Logic
-
-The adaptive workflow is controlled by a deterministic state machine.
-
-The agent state tracks:
-
-- diagnostic results
-- weak topics
-- current topic
-- attempts on the current topic
-- workflow status
-
-The LLM does not control progression.
-
-Instead:
-
-```text
-Wrong answer   -> stay on current topic
-Correct answer -> move to next weak topic
-No weak topics -> complete
-```
-
-This makes the learning flow predictable and easier to test.
-
----
-
-## Automatic Grading
-
-MCQ grading is deterministic rather than LLM-based.
-
-Responses are classified as:
-
-- `correct`
-- `concept_error`
-- `unanswered`
-
-Rule-based grading is used because it is cheaper, faster, and more reliable for multiple-choice questions.
-
----
-
-## Question Bank
-
-The MVP contains approximately:
-
-- 98 Math MCQs
-- 12 diagnostic topics
-- multiple seed questions per topic
-
-The questions are newly written/adapted based on the concepts, topic structure, and general entry-test style of KIPS preparation material.
-
-They are not a verbatim digitization of the source material.
-
----
-
-## MLflow Tracking
-
-MLflow is used to track retrieval experiments.
-
-For retrieval runs, the system logs:
-
-- query
-- `top_k`
-- top similarity score
-
-Run the MLflow interface with:
-
-```bash
-mlflow ui
-```
-
-Then open:
-
-```text
-http://127.0.0.1:5000
-```
-
----
-
-## Tech Stack
-
-### Backend
-
-- Python
-- FastAPI
-- Pydantic
-
-### AI / Retrieval
-
-- SentenceTransformers
-- `all-MiniLM-L6-v2`
-- FAISS
-- Gemini API
-
-### Experiment Tracking
-
-- MLflow
-
-### Frontend
-
-- HTML
-- CSS
-- JavaScript
-
-### Testing
-
-- Pytest
-
-### Deployment / Packaging
-
-- Docker
-
-### Version Control
-
-- Git
-- GitHub
-- Feature branches
-- Pull requests
-- Meaningful commit messages
-
----
-
-## Project Structure
-
-```text
-adaptive-study-coach/
-├── app/
-│   ├── data/
-│   │   └── questions.json
-│   ├── models/
-│   ├── repositories/
-│   ├── routers/
-│   ├── services/
-│   ├── static/
-│   │   └── index.html
-│   └── main.py
-├── tests/
-├── Dockerfile
-├── requirements.txt
-├── .gitignore
-└── README.md
-```
-
----
-
-## Running Locally
-
-### 1. Clone the repository
-
-```bash
-git clone https://github.com/ahmedforge/adaptive-study-coach.git
-cd adaptive-study-coach
-```
-
-### 2. Create a virtual environment
-
-```bash
-python -m venv venv
-source venv/bin/activate
-```
-
-On Windows:
-
-```bash
-venv\Scripts\activate
-```
-
-### 3. Install dependencies
-
-```bash
-pip install -r requirements.txt
-```
-
-### 4. Configure Gemini
-
-Create a `.env` file in the project root:
-
-```env
-GEMINI_API_KEY=your_gemini_api_key
-```
-
-Do not commit the `.env` file.
-
-### 5. Start the application
-
-```bash
-uvicorn app.main:app --reload
-```
-
-Open:
-
-```text
-http://127.0.0.1:8000/
-```
-
-FastAPI documentation:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
----
-
-## Running Tests
-
-```bash
+```sh
+python -m pip install -r requirements-test.txt
+python -m tools.question_bank validate
+python -m tools.question_bank coverage
 python -m pytest -q
+node --test tests/session-library.test.cjs
 ```
 
-Local result (October 30, 2026; no live Gemini calls):
+Use the virtual environment's Python. The real semantic ranking test runs when `sentence-transformers` is installed and requires the MiniLM model. The remaining tests exercise practice, account ownership, saved exams, bank imports, generation fallback and retrieval error handling locally.
 
-```text
-75 passed
-```
-
----
-
-## Docker
-
-Build the image:
-
-```bash
-docker build -t adaptive-study-coach .
-```
-
-Run the container:
-
-```bash
-docker run --env-file .env -p 8000:8000 adaptive-study-coach
-```
-
-Then open:
-
-```text
-http://127.0.0.1:8000/
-```
-
----
-
-## Current Results
-
-- 98 Math MCQs
-- 12-question diagnostic
-- 12 Math topic areas
-- Semantic retrieval using FAISS
-- Gemini-generated practice variants
-- Adaptive state-machine loop
-- MLflow retrieval tracking
-- 75 automated tests passing
-- Dockerized application
-
----
-
-## Limitations
-
-This is a bootcamp MVP and currently has several limitations:
-
-- Math only
-- relatively small local seed bank
-- minimal frontend
-- generated-question quality depends on the Gemini model
-- embedding model may download on first use
-- no student authentication
-- no persistent learning history
-- richer error classification is not yet implemented
-
----
-
-## Future Work
-
-Future improvements could include:
-
-- more subjects
-- larger curated question banks
-- automatic difficulty adaptation
-- student accounts
-- persistent progress tracking
-- analytics dashboard
-- richer misconception classification
-- generation-quality evaluation
-- persistent vector database
-- improved session management
-
----
-
-## Key Design Decision
-
-The central design principle is:
-
-> Use AI for semantic retrieval and content generation, but use deterministic code for grading and learning-flow decisions.
-
-This keeps the system adaptive while maintaining predictable behavior.
-
----
-
-## Capstone Outcome
-
-The final MVP demonstrates an end-to-end adaptive learning pipeline:
-
-```text
-Diagnose weakness
-      ->
-Retrieve relevant content
-      ->
-Generate targeted practice
-      ->
-Grade response
-      ->
-Adapt the learning path
-```
-
----
-
-## Author
-
-Ahmed  
-AI Bootcamp Capstone Project
 ## Validated generation and fallback
 
 Practice variants require a non-empty question and explanation, exactly four
@@ -464,9 +74,7 @@ be independently audited. No live provider accuracy result is implied by tests.
 
 The practice screen now saves a diagnostic, the current question, remaining weak
 topics, attempts, answer feedback, and practice history in SQLite. On reload,
-choose **Resume saved practice** to continue the same question. **Start new
-diagnostic** forgets this browser's resume token; it does not delete the old server
-record. Correctness is calculated on the server from the saved question. Current
+choose **Resume saved practice** to continue the same question. **Start new diagnostic** keeps the previous session available until the new diagnostic saves. Correctness is calculated on the server from the saved question. Current
 answer keys are excluded from the session API response until an answer is saved.
 
 - Default database: `progress_data/progress.sqlite3` (ignored by Git). Override
@@ -476,7 +84,7 @@ answer keys are excluded from the session API response until an answer is saved.
   anonymous session. Account-owned sessions additionally require the signed-in owner.
 - Keep the database file across restarts. Container deployments need a mounted
   persistent directory and the matching `STUDY_COACH_DB` path; otherwise container
-  replacement loses saved progress. No deployment or Docker changes are included.
+  replacement loses saved progress. Compose mounts this directory automatically.
 - A stale answer from another tab is rejected. Retrying the most recent identical
   answer after a lost response returns the saved result without counting it twice.
 - If preparing the next question or saving fails, the previous saved state remains
@@ -506,8 +114,7 @@ updates, invalid diagnostics, and failed saves. No live Gemini calls were used.
 
 ## Topic-safe, varied practice seeds
 
-Practice retrieval ranks the bank but selects seeds only from the learner's exact
-current topic. Diagnostic question IDs and saved practice seed IDs are treated as
+Both practice modes select seeds from the learner's exact current topic. Semantic mode ranks candidates by embedding similarity. Diagnostic question IDs and saved practice seed IDs are treated as
 seen: unseen seeds come first. After all seeds in that topic have been seen, the
 least recently used one is selected, rather than repeating the top search result
 forever. The current bank has 98 questions across 12 topics: nine each in limits and quadratic equations, and eight in each other topic.
@@ -524,7 +131,7 @@ spaced repetition, difficulty adaptation, or a mastery estimate. MLflow tracking
 is best effort: a tracking outage does not block a valid retrieval. The general
 search API validates query length and requires `top_k` between 1 and 20.
 
-Local selection verification (October 30, 2026): **75 tests passed** with cached embeddings and no live Gemini calls.
+
 
 
 ### Diagnostic results review
@@ -635,8 +242,7 @@ hashes are stored in SQLite. The exam score and report remain unchanged.
 The browser saves the practice token separately from the exam token and opens
 `/?resume=1` to resume practice directly. Starting revision replaces the browser's
 current practice resume link; it does not delete that earlier session. Storage
-must be enabled for this handoff between pages. If storage is blocked, enable it
-and retry the same action to recover the saved revision plan. The practice screen
+must be enabled for this handoff between pages. If storage is blocked, signed-in learners can open the saved plan from the dashboard. Anonymous learners can enable storage and retry the same action. The practice screen
 labels the assessment **Mock exam** rather than **Diagnostic**. Older practice
 sessions without source metadata retain their diagnostic label.
 
@@ -704,78 +310,6 @@ unrecognized topic silently would change the current 12-topic exam design. Avoid
 editing the bank concurrently with an import; the write checks for intervening
 changes, but this command is intended for one local editor at a time.
 
-## Automated checks on GitHub
-
-`.github/workflows/checks.yml` runs on pushes, pull requests, and manual dispatch.
-The **Project checks** workflow first validates the complete question bank and
-prints topic/difficulty coverage. If that succeeds, a second job installs the CPU
-runtime, checks browser scripts with Node.js, and runs the complete pytest
-suite on Python 3.12. A `pytest-report` artifact contains the JUnit XML results
-when pytest runs, retained for seven days.
-
-The embedding model is public and cached between runs; the first uncached run
-needs to download it. Package installation also needs Internet access. Gemini
-credentials are not required: the workflow leaves `GEMINI_API_KEY` empty, and
-provider behavior is tested with mocks and fallback checks. This does not evaluate
-live Gemini answer quality. Test tracking/progress databases use the runner's
-temporary directory and are not uploaded.
-
-Open the repository's **Actions → Project checks** page after pushing to see the
-first hosted result. Local checks do not confirm that hosted installation and
-execution have passed. No deployment, branch protection, or required-check rule
-is configured by this workflow; repository administrators can make these checks
-required separately.
-
-To run the same validation commands locally, activate the project's environment
-and install test dependencies first:
-
-```bash
-python -m pip install -r requirements-test.txt
-python -m tools.question_bank validate
-python -m tools.question_bank coverage
-node --check app/static/app.js
-node --check app/static/exam.js
-node --check app/static/session-library.js
-node --check app/static/dashboard.js
-node --test tests/session-library.test.cjs
-GEMINI_API_KEY= python -m pytest -q --junitxml=reports/pytest.xml
-```
-
-The workflow uses the official GitHub [Python setup](https://github.com/actions/setup-python),
-[Node setup](https://github.com/actions/setup-node), [cache](https://github.com/actions/cache),
-and [artifact](https://github.com/actions/upload-artifact) actions. Dependencies
-remain version-ranged/unpinned as in the runtime requirements; this checks current
-compatibility rather than providing a fully locked build.
-
-## Lazy retrieval startup and recovery
-
-Application startup loads and validates the JSON bank but does not import or
-initialize SentenceTransformer or build an embedding index. Health checks, the
-browser pages, diagnostics, and bank-based mock exams can run without a cached
-embedding model or a model download. The Python runtime dependencies still need
-to be installed.
-
-The first retrieval/practice request loads `all-MiniLM-L6-v2` (downloading it if
-not cached) and builds one shared FAISS index per server process. Cold practice
-requests may therefore take longer. Locks prevent simultaneous requests within a
-process from loading multiple model copies or publishing partial indexes. Each
-worker process has its own model/index; this is not a cross-worker cache.
-
-If loading or querying fails, search and practice endpoints return a retryable
-503 response without exposing internal error details. An unsuccessful index or
-model load remains retryable. Saved practice answers are committed only when the
-next question is prepared successfully, so a retrieval outage preserves the
-previous saved question, history, and streak; retry the answer after recovery.
-A previously saved question can still be resumed for review during an outage.
-Targeted revision from an exam needs retrieval when its first practice question
-is created; the exam/report itself remains available.
-
-Restart the server after importing new bank questions: the in-process bank and
-index are snapshots. Local tests include a clean-process smoke check with an
-empty model cache and offline mode, concurrent first requests, recovery after a
-failed load, and saved-progress preservation. The real semantic retrieval test
-still exercises the actual embedding model separately.
-
 ## Progress dashboard and saved-session library
 
 Open `/dashboard` from the study or exam screen to review sessions retained by
@@ -839,9 +373,7 @@ for progress you want to keep.
 Accounts live in `STUDY_COACH_DB` alongside progress. Retain this database when
 restarting/redeploying; signing in against a different database does not recover
 accounts from the original server. This is server-backed progress, not a separate
-cloud synchronization provider. If browser storage is blocked, the dashboard can
-still load account results, but the current page-to-page resume flow needs storage
-to hand off its resume token.
+cloud synchronization provider. If browser storage is blocked while login cookies are available, the dashboard can still reopen owned sessions using their account IDs.
 
 ### Ownership and token compatibility
 
@@ -861,7 +393,7 @@ without resetting progress.
 
 Schema changes are additive. Before upgrading a non-empty pre-account database,
 the app creates a SQLite snapshot in `account_migration_backups/` beside the DB,
-with file mode 0600. Backup directories are ignored by Git. Existing anonymous
+with file mode 0600 on POSIX. On Windows, protect the containing directory with your user account permissions. Backup directories are ignored by Git. Existing anonymous
 records are not assigned to an account until explicitly claimed. Use the updated
 server consistently after claiming sessions; older server versions do not enforce
 account ownership.

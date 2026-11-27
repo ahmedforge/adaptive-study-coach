@@ -43,7 +43,7 @@ function headers() {
 function savedStatus() {
     statusBox.textContent = browserStorageWorks
         ? 'Progress saved. Resume from this browser after closing or restarting the app.'
-        : 'Progress saved on this server, but browser storage is unavailable. Keep this tab open to retain access.';
+        : 'Progress saved on this server, but browser storage is unavailable. Signed-in learners can reopen it from the dashboard. For anonymous practice, keep this tab open.';
 }
 function topicLabel(topic) {
     return topic.replaceAll('_', ' ');
@@ -183,7 +183,7 @@ function renderSession(data, reviewAnswer = true) {
     practiceHeading.tabIndex = -1;
     practiceBox.append(practiceHeading);
     practiceBox.append(element('p', activeQuestion.generation_source === 'seed_fallback'
-        ? 'Question bank practice - AI generation unavailable or rejected.' : 'AI-generated practice'));
+        ? 'Practice from the question bank' : 'AI-generated practice'));
     practiceBox.append(element('p', activeQuestion.question));
     for (const option of activeQuestion.options) {
         const label = document.createElement('label');
@@ -224,6 +224,7 @@ form.addEventListener('submit', async event => {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Study-Coach': '1' }, body: JSON.stringify({ answers }),
         });
         sessionToken = data.session_token;
+        if (window.location.hash) window.history.replaceState(null, '', '/?resume=1');
         try { localStorage.setItem(STORAGE_KEY, sessionToken); }
         catch { browserStorageWorks = false; }
         renderSession(data); savedStatus();
@@ -251,17 +252,23 @@ resumeButton.addEventListener('click', async () => {
     catch (error) { statusBox.textContent = error.message; }
     finally { busy(false); }
 });
-newButton.addEventListener('click', () => {
-    sessionToken = ''; activeQuestion = null;
-    try { localStorage.removeItem(STORAGE_KEY); } catch { browserStorageWorks = false; }
-    reportBox.replaceChildren(); practiceBox.replaceChildren();
-    resumeControls.hidden = true; form.reset(); showDiagnostic(true);
-    statusBox.textContent = 'Ready for a new diagnostic.';
+newButton.addEventListener('click', async () => {
+    busy(true);
+    try {
+        if (!diagnosticQuestions.length) await loadDiagnostic();
+        activeQuestion = null;
+        reportBox.replaceChildren(); practiceBox.replaceChildren();
+        form.reset(); showDiagnostic(true);
+        statusBox.textContent = 'Ready for a new diagnostic. Your previous session is saved.';
+    } catch (error) { statusBox.textContent = error.message; }
+    finally { busy(false); }
 });
 async function initialize() {
     busy(true);
     try {
-        await loadDiagnostic();
+        if (window.location.hash.startsWith('#account=')) {
+            sessionToken = await window.StudyLibrary.accountResumeToken('practice');
+        }
         if (sessionToken) {
             resumeControls.hidden = false;
             statusBox.textContent = 'Saved practice is available. Resume it or start a new diagnostic.';
@@ -270,8 +277,10 @@ async function initialize() {
                 renderSession(await request('/sessions/current', { headers: headers() }));
                 savedStatus();
             }
+        } else {
+            await loadDiagnostic();
         }
-    } catch (error) { statusBox.textContent = error.message; }
+    } catch (error) { showDiagnostic(false); statusBox.textContent = error.message; resumeControls.hidden = false; }
     finally { busy(false); }
 }
 initialize();

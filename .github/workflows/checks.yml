@@ -39,9 +39,6 @@ jobs:
     env:
       GEMINI_API_KEY: ''
       PYTHONDONTWRITEBYTECODE: '1'
-      HF_HOME: ${{ runner.temp }}/hf-cache
-      MLFLOW_TRACKING_URI: sqlite:///${{ runner.temp }}/test-mlflow.db
-      STUDY_COACH_DB: ${{ runner.temp }}/test-progress.sqlite3
     steps:
       - uses: actions/checkout@v7
         with:
@@ -51,21 +48,14 @@ jobs:
           python-version: '3.12'
           cache: pip
           cache-dependency-path: |
-            requirements.txt
+            requirements-core.txt
             requirements-test.txt
       - uses: actions/setup-node@v7
         with:
           node-version: '22'
           package-manager-cache: false
-      - name: Cache public embedding model
-        uses: actions/cache@v6
-        with:
-          path: ${{ env.HF_HOME }}
-          key: minilm-${{ runner.os }}-py312-${{ hashFiles('requirements.txt', 'requirements-test.txt', 'app/services/embedding_service.py') }}
-      - name: Install CPU runtime and test dependencies
+      - name: Install runtime and test dependencies
         run: |
-          python -m pip install --upgrade pip
-          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
           python -m pip install -r requirements-test.txt
           python -m pip check
       - name: Check browser script syntax
@@ -78,6 +68,8 @@ jobs:
       - name: Test browser session library
         run: node --test tests/session-library.test.cjs
       - name: Run complete test suite
+        env:
+          STUDY_COACH_DB: ${{ runner.temp }}/test-progress.sqlite3
         run: python -m pytest -q --junitxml=reports/pytest.xml
       - name: Upload test report
         if: always()
@@ -87,3 +79,39 @@ jobs:
           path: reports/pytest.xml
           if-no-files-found: warn
           retention-days: 7
+
+  container:
+    name: Container startup and persistence
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - run: docker compose up --build --wait
+      - name: Verify a saved exam survives container replacement
+        run: |
+          token=$(curl -fsS -H 'Content-Type: application/json' -d '{"question_count":12,"duration_minutes":15}' http://127.0.0.1:8000/exams | jq -er .exam_token)
+          docker compose up --force-recreate --wait
+          curl -fsS -H "Authorization: Bearer $token" http://127.0.0.1:8000/exams/current | jq -e '.questions | length == 12'
+      - if: always()
+        run: docker compose down --volumes
+
+  semantic-integration:
+    name: Real MiniLM model integration
+    if: github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.12'
+      - name: Install the optional stack
+        run: |
+          python -m pip install torch --index-url https://download.pytorch.org/whl/cpu
+          python -m pip install -r requirements.txt -r requirements-test.txt
+      - name: Run semantic ranking against the actual model
+        run: python -m pytest -q tests/test_retrieval_service.py::test_retrieval_returns_relevant_question

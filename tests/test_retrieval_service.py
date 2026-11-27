@@ -1,7 +1,10 @@
+import pytest
+
 from app.services.retrieval_service import QuestionRetriever
 
 
 def test_retrieval_returns_relevant_question():
+    pytest.importorskip("sentence_transformers", reason="install requirements.txt to run the real MiniLM integration")
     retriever = QuestionRetriever()
 
     results = retriever.search("quadratic equation roots", top_k=3)
@@ -13,7 +16,6 @@ def test_retrieval_returns_relevant_question():
 # Controlled rankings deliberately put the wrong topic first, so these tests
 # cannot pass merely because the embedding model happens to rank well.
 import numpy as np
-import pytest
 from types import SimpleNamespace
 import app.services.retrieval_service as service
 
