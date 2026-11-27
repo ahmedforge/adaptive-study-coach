@@ -28,20 +28,9 @@ function renderSessions() {
         const open = node('button', isExam ? session.status === 'active' ? 'Continue exam' : 'Open exam report' : 'Open saved practice');
         open.type = 'button';
         const reference = references[session.index];
-        open.addEventListener('click', async () => {
-            try {
-                let resumeReference = reference;
-                if (reference.id) {
-                    open.disabled = true;
-                    const response = await fetch('/account/open', {method:'POST', headers:{'Content-Type':'application/json', 'X-Study-Coach':'1'}, body:JSON.stringify({id:reference.id}), signal:AbortSignal.timeout(15000)});
-                    const data = await response.json();
-                    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Sign in again to open this session.');
-                    resumeReference = {kind:data.kind, token:data.session_token};
-                }
-                window.StudyLibrary.resume(resumeReference);
-            }
-            catch (error) { el('progress-status').textContent = error.message || 'Enable browser storage to open this session.'; }
-            finally { open.disabled = false; }
+        open.addEventListener('click', () => {
+            try { window.StudyLibrary.resume(reference); }
+            catch (error) { el('progress-status').textContent = error.message; }
         });
         card.append(open); box.append(card);
     }
@@ -78,7 +67,7 @@ function renderProgress() {
     }
     limit = 10; renderSessions();
 }
-async function refresh() {
+async function refresh(offset = accountOffset) {
     el('refresh-progress').disabled = true; el('session-filter').disabled = true;
     el('more-sessions').disabled = true;
     el('newer-account-sessions').disabled = true; el('older-account-sessions').disabled = true;
@@ -91,18 +80,19 @@ async function refresh() {
         if (username !== loadedUsername) {
             el('progress-overview').replaceChildren(); el('saved-sessions').replaceChildren();
             el('revisit').hidden = true; el('topic-progress').hidden = true;
-            el('more-sessions').hidden = true; progress = null; references = []; accountOffset = 0;
+            el('more-sessions').hidden = true; progress = null; references = []; offset = 0; accountOffset = 0;
+            el('newer-account-sessions').hidden = true; el('older-account-sessions').hidden = true;
         }
         let requested, hasMore = false;
         if (user.authenticated) {
-            const libraryResponse = await fetch(`/account/library?offset=${accountOffset}`, {signal: AbortSignal.timeout(15000)});
+            const libraryResponse = await fetch(`/account/library?offset=${offset}`, {signal: AbortSignal.timeout(15000)});
             const library = await libraryResponse.json();
             if (!libraryResponse.ok) throw new Error(library.detail || 'Account progress is unavailable.');
             requested = library.sessions; hasMore = library.has_more;
             el('progress-context').textContent = `Signed in as ${user.username}. Results below cover this page of account sessions.`;
             el('progress-storage-help').textContent = 'Account progress is stored on this server and available after signing in on another device. Use the older/newer controls to browse your history. Totals and topic results apply to the current page of up to 50 sessions. Browser-only progress can be imported from Your account.';
         } else {
-            accountOffset = 0; requested = window.StudyLibrary.list();
+            offset = 0; requested = window.StudyLibrary.list();
             el('progress-context').textContent = 'Progress from session links saved in this browser. Sign in for account history across devices.';
             el('progress-storage-help').textContent = 'Anonymous progress uses up to 50 session links retained in this browser. Clearing storage loses those links. Account-owned links require the owner to sign in; account history is stored on this server.';
         }
@@ -111,7 +101,7 @@ async function refresh() {
             signal: AbortSignal.timeout(15000)});
         const data = await response.json();
         if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Progress could not be loaded.');
-        references = requested; progress = data; loadedUsername = username; renderProgress();
+        accountOffset = offset; references = requested; progress = data; loadedUsername = username; renderProgress();
         el('newer-account-sessions').hidden = !user.authenticated || accountOffset === 0;
         el('older-account-sessions').hidden = !user.authenticated || !hasMore;
         el('progress-status').textContent = !user.authenticated && !window.StudyLibrary.storageAvailable()
@@ -123,9 +113,9 @@ async function refresh() {
         el('newer-account-sessions').disabled = false; el('older-account-sessions').disabled = false;
     }
 }
-el('refresh-progress').addEventListener('click', refresh);
-el('newer-account-sessions').addEventListener('click', () => { accountOffset = Math.max(0, accountOffset - 50); refresh(); });
-el('older-account-sessions').addEventListener('click', () => { accountOffset += 50; refresh(); });
+el('refresh-progress').addEventListener('click', () => refresh());
+el('newer-account-sessions').addEventListener('click', () => refresh(Math.max(0, accountOffset - 50)));
+el('older-account-sessions').addEventListener('click', () => refresh(accountOffset + 50));
 el('session-filter').addEventListener('change', () => { if (progress) { limit = 10; renderSessions(); } });
 el('more-sessions').addEventListener('click', () => {
     const firstNew = limit; limit += 10; renderSessions();
