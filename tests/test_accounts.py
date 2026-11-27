@@ -1,3 +1,4 @@
+import os
 from contextlib import ExitStack
 from concurrent.futures import ThreadPoolExecutor
 import json
@@ -307,7 +308,8 @@ def test_existing_progress_is_backed_up_before_additive_migration(tmp_path):
     store = ProgressStore(path)
     assert store.load('old-token')[1]['history'] == ['kept']
     backup = next((tmp_path/'account_migration_backups').glob('*.sqlite3'))
-    assert backup.stat().st_mode & 0o777 == 0o600
+    if os.name == 'posix':
+        assert backup.stat().st_mode & 0o777 == 0o600
     with sqlite3.connect(backup) as db:
         assert json.loads(db.execute('SELECT payload FROM study_sessions').fetchone()[0])['history'] == ['kept']
     ProgressStore(path)

@@ -1,6 +1,7 @@
-venv
-.git
-.env
-__pycache__
-.pytest_cache
-*.pyc
+**
+!requirements-core.txt
+!app/
+!app/**
+**/__pycache__/
+**/*.pyc
+**/bank_backups/
