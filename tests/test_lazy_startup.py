@@ -18,7 +18,7 @@ from app.services import retrieval_service as service
 
 def test_startup_and_exams_work_offline_without_loading_model(tmp_path):
     env = dict(os.environ, HF_HOME=str(tmp_path / 'empty-model-cache'), HF_HUB_OFFLINE='1',
-        GEMINI_API_KEY='', STUDY_COACH_DB=str(tmp_path / 'progress.sqlite3'),
+        GEMINI_API_KEY='', STUDY_COACH_PRACTICE_RETRIEVAL='bank', STUDY_COACH_DB=str(tmp_path / 'progress.sqlite3'),
         MLFLOW_TRACKING_URI='sqlite:///' + str(tmp_path / 'tracking.db'))
     code = '''
 import sys
@@ -29,12 +29,17 @@ with TestClient(app) as client:
     assert client.get('/health').status_code == 200
     assert client.get('/').status_code == 200
     assert client.get('/exam').status_code == 200
-    assert len(client.get('/diagnostic/questions').json()['questions']) == 12
+    questions = client.get('/diagnostic/questions').json()['questions']
+    assert len(questions) == 12
+    session = client.post('/sessions', json={'answers': [
+        {'question_id': q['id'], 'selected_answer': None} for q in questions]})
+    assert session.status_code == 201, session.text
+    assert session.json()['practice_question']
     response = client.post('/exams', json={})
     assert response.status_code == 201
     assert len(response.json()['questions']) == 12
 assert retriever.index is None
-assert 'sentence_transformers' not in sys.modules
+assert all(name not in sys.modules for name in ('sentence_transformers', 'faiss', 'mlflow', 'google.genai'))
 print('offline startup passed')
 '''
     result = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True, timeout=45)

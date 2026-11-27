@@ -1,3 +1,4 @@
+import os
 from collections import Counter
 
 from app.models.agent_state import AgentState
@@ -67,12 +68,18 @@ def get_practice_question(state: AgentState, *, recent_question_ids: list[str] |
     if state.current_topic is None:
         return None
 
+    seen_ids = [result.question_id for result in state.diagnostic_results] + (recent_question_ids or [])
+    if os.getenv("STUDY_COACH_PRACTICE_RETRIEVAL", "bank").lower() != "semantic":
+        seen = {question_id: i for i, question_id in enumerate(seen_ids)}
+        candidates = (question for question in retriever.questions if question.topic == state.current_topic)
+        seed = min(candidates, key=lambda q: seen.get(q.id, -1), default=None)
+        return generate_variant(seed) if seed is not None else None
+
     results = retriever.search(
         query=state.current_topic,
         top_k=1,
         topic=state.current_topic,
-        recent_question_ids=[result.question_id for result in state.diagnostic_results]
-                            + (recent_question_ids or []),
+        recent_question_ids=seen_ids,
     )
 
     if not results or results[0]["question"].topic != state.current_topic:

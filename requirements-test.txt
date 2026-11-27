@@ -1,3 +1,5 @@
--r requirements.txt
-# Explicit TestClient dependency; do not rely on another SDK installing it.
+-r requirements-core.txt
+pytest
 httpx
+faiss-cpu
+google-genai

@@ -1,9 +1,9 @@
-import mlflow
-
 EXPERIMENT_NAME = "adaptive-study-coach"
 
 
 def log_retrieval_run(query: str, top_k: int, top_score: float):
+    import mlflow
+
     mlflow.set_experiment(EXPERIMENT_NAME)
 
     with mlflow.start_run(run_name="rag_retrieval"):

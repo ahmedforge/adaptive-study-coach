@@ -98,7 +98,8 @@ def test_provider_configuration_disables_retries_and_closes_client(monkeypatch):
         def generate_content(self, **kwargs):
             calls['request'] = kwargs
             return SimpleNamespace(text='response')
-    monkeypatch.setattr(service.genai, 'Client', FakeClient)
+    from google import genai
+    monkeypatch.setattr(genai, 'Client', FakeClient)
     assert service._request_variant('prompt') == 'response'
     assert calls['http_options'].timeout == 20000
     assert calls['http_options'].retry_options.attempts == 1

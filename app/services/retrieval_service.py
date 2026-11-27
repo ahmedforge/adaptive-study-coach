@@ -1,8 +1,6 @@
 import logging
 from threading import Lock
 
-import faiss
-
 from app.services.mlflow_service import log_retrieval_run
 from app.repositories.question_repository import load_questions
 from app.services.embedding_service import embed_texts
@@ -27,6 +25,7 @@ class QuestionRetriever:
             if self.index is None:
                 texts = [f"{q.topic} {q.subtopic} {q.question}" for q in self.questions]
                 embeddings = embed_texts(texts).astype('float32')
+                import faiss
                 faiss.normalize_L2(embeddings)
                 index = faiss.IndexFlatIP(embeddings.shape[1])
                 index.add(embeddings)
@@ -42,6 +41,7 @@ class QuestionRetriever:
         # Filter after ranking the full small bank, not just the nearest few:
         # otherwise an off-topic nearest neighbour can hide valid topic seeds.
         try:
+            import faiss
             self._ensure_index()
             query_embedding = embed_texts([query]).astype('float32')
             faiss.normalize_L2(query_embedding)
